@@ -1,0 +1,49 @@
+@startuml Classes in Quartz
+
+class Gate
+{
+    + GateType tp;
+    + int num_qubits;
+    + num_parameters;
+}
+Gate --|> CircuitGate
+class CircuitWire
+{
+    + Type type;
+    + int index;
+    + std::vector<CircuitGate *> input_gates;
+    + std::vector<CircuitGate *> output_gates;
+}
+class CircuitGate
+{
+    + std::vector<CircuitWire *> input_wires;
+    + std::vector<CircuitWire *> output_wires;
+    + Gate *gate;
+}
+
+class CircuitSeq
+{
+    + std::vector<std::unique_ptr<CircuitWire>> wires;
+    + std::vector<std::unique_ptr<CircuitGate>> gates;
+    + std::vector<CircuitWire *> outputs;
+    + std::vector<CircuitWire *> parameters;
+}
+
+CircuitSeq *-- CircuitGate
+CircuitSeq *-- CircuitWire
+
+class EquivalenceClass
+{
+    - std::vector<std::unique_ptr<CircuitSeq>> dags_;
+}
+
+EquivalenceClass o-- CircuitSeq
+
+class EquivalenceSet
+{
+    - std::vector<std::unique_ptr<EquivalenceClass>> classes_;
+}
+
+EquivalenceSet o-- EquivalenceClass
+
+@enduml
