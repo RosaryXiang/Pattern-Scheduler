@@ -59,6 +59,8 @@ public:
   [[nodiscard]] std::pair<InputParamMaskType, std::vector<InputParamMaskType>>
   get_input_param_mask() const;
   CircuitSeqHashType hash(Context *ctx);
+  void add_succeed_hash_value(const CircuitSeqHashType &hash_value);
+  std::vector<CircuitSeqHashType> get_succeed_hash_values();
   // Evaluate the output distribution 2^|num_qubits| times, with the i-th
   // time the input distribution being a vector with only the i-th entry
   // equals to 1 and all other entries equal to 0.
@@ -161,6 +163,7 @@ public:
 private:
   int num_qubits, num_input_parameters;
   CircuitSeqHashType hash_value_;
+  std::vector<CircuitSeqHashType> succeed_hash_values;
   // For both floating-point error tolerance
   // and equivalences under a phase shift.
   // The first component of the pair is the hash value,

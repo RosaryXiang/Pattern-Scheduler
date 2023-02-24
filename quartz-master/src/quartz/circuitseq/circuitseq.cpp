@@ -2,6 +2,7 @@
 #include "../context/context.h"
 #include "../gate/gate.h"
 #include "../parser/qasm_parser.h"
+#include "utils/utils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -615,6 +616,14 @@ CircuitSeqHashType CircuitSeq::hash(Context *ctx) {
   return hash_value_;
 }
 
+void CircuitSeq::add_succeed_hash_value(const CircuitSeqHashType &hash_value) {
+  succeed_hash_values.push_back(hash_value);
+}
+
+std::vector<CircuitSeqHashType> CircuitSeq::get_succeed_hash_values() {
+  return succeed_hash_values;
+}
+
 std::vector<Vector> CircuitSeq::get_matrix(Context *ctx) const {
   const auto sz = 1 << get_num_qubits();
   Vector input_dis(sz);
@@ -876,6 +885,23 @@ std::string CircuitSeq::to_json() const {
   }
   result += "]";
 
+  // result += ",[";
+  // bool first_suc_hash_value = true;
+  // for (auto &succeed_value : succeed_hash_values) {
+  //   if (!first_suc_hash_value) {
+  //     result += ",";
+  //   } else {
+  //     first_suc_hash_value = false;
+  //   }
+  //   static char buffer[64];
+  //   auto [ptr_suc, ec_suc] =
+  //       std::to_chars(buffer, buffer + sizeof(buffer), succeed_value, /*base=*/
+  //                     16);
+  //   assert(ec_suc == std::errc());
+  //   auto one_suc_value = std::string(buffer, ptr_suc);
+  //   result += "\"" + one_suc_value + "\"";
+  // }
+  // result += "]";
   result += ",";
   result += "[";
   // std::to_chars for floating-point numbers is not supported by some

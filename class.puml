@@ -46,4 +46,13 @@ class EquivalenceSet
 
 EquivalenceSet o-- EquivalenceClass
 
+class Dataset
+{
+    - std::unordered_map<CircuitSeqHashType,
+                     std::vector<std::unique_ptr<CircuitSeq>>>
+      dataset;
+}
+
+Dataset o-- CircuitSeq
+
 @enduml

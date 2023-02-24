@@ -68,6 +68,13 @@ public:
   static bool less_than(const EquivalenceClass &ecc1,
                         const EquivalenceClass &ecc2);
 
+public:
+  void add_succeed_class(const CircuitSeqHashType &hash_value);
+  std::vector<CircuitSeqHashType> get_succeed_classes();
+
+private:
+  std::vector<CircuitSeqHashType> succeed_classes_;
+
 private:
   std::vector<std::unique_ptr<CircuitSeq>> dags_;
 };

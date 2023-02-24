@@ -192,6 +192,14 @@ bool EquivalenceClass::less_than(const EquivalenceClass &ecc1,
   return false;
 }
 
+void EquivalenceClass::add_succeed_class(const CircuitSeqHashType &hash_value) {
+  succeed_classes_.push_back(hash_value);
+}
+
+std::vector<CircuitSeqHashType> EquivalenceClass::get_succeed_classes() {
+  return succeed_classes_;
+}
+
 bool EquivalenceSet::load_json(Context *ctx, const std::string &file_name,
                                std::vector<CircuitSeq *> *new_representatives) {
   std::ifstream fin;

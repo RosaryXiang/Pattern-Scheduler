@@ -10,6 +10,7 @@ namespace quartz {
 class Dataset {
 public:
   bool save_json(Context *ctx, const std::string &file_name) const;
+  bool save_succeed_info(Context *ctx, const std::string &file_name) const;
 
   // Return the number of DAGs removed.
   int remove_singletons(Context *ctx);
