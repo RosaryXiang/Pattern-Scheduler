@@ -1,8 +1,10 @@
 #include "generator.h"
 #include "../dataset/equivalence_set.h"
+#include "circuitseq/circuitseq.h"
 #include "utils/utils.h"
-#include <cassert>
 #include <fstream>
+
+#include <cassert>
 
 namespace quartz {
 void Generator::generate_dfs(int num_qubits, int max_num_input_parameters,
@@ -22,46 +24,12 @@ void Generator::generate_dfs(int num_qubits, int max_num_input_parameters,
   delete dag;
 }
 
-bool print_map(std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
-                   &hash_succeed_info_map,
-               std::string file_name) {
-  std::ofstream fout;
-  fout.open(file_name, std::ofstream::out);
-  if (!fout.is_open()) {
-    return false;
-  }
-  fout << "{" << std::endl;
-  fout << hash_succeed_info_map.size() << std::endl;
-  for (auto &i : hash_succeed_info_map) {
-    if (i.second.empty()) {
-      // Empty CircuitSeq set
-      std::cout << "it's empty!" << std::endl;
-      continue;
-    }
-    fout << "[[\"" << std::hex << i.first << "\"],[";
-    bool first = true;
-    for (auto &j : i.second) {
-      if (!first) {
-        fout << ",";
-      } else {
-        first = false;
-      }
-      fout << "\"" << std::hex << j << "\"";
-    }
-    fout << "]]," << std::endl;
-  }
-  fout << "}" << std::endl;
-  return true;
-};
-
 void Generator::generate(
     int num_qubits, int num_input_parameters, int max_num_quantum_gates,
     int max_num_param_gates, Dataset *dataset, bool invoke_python_verifier,
     EquivalenceSet *equiv_set, bool unique_parameters, bool verbose,
     decltype(std::chrono::steady_clock::now() -
              std::chrono::steady_clock::now()) *record_verification_time) {
-  std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
-      hash_succeed_info_map;
   auto empty_dag =
       std::make_unique<CircuitSeq>(num_qubits, num_input_parameters);
   // Generate all possible parameter gates at the beginning.
@@ -94,14 +62,13 @@ void Generator::generate(
       assert(dataset);
       dags_to_search.clear();
       bfs(dags, max_num_param_gates, *dataset, &dags_to_search,
-          invoke_python_verifier, hash_succeed_info_map, nullptr,
-          unique_parameters);
+          invoke_python_verifier, nullptr, unique_parameters);
       dags.push_back(dags_to_search);
     } else {
       assert(dataset);
       assert(equiv_set);
       bfs(dags, max_num_param_gates, *dataset, nullptr, invoke_python_verifier,
-          hash_succeed_info_map, equiv_set, unique_parameters);
+          equiv_set, unique_parameters);
       // Do not verify when |num_gates == max_num_quantum_gates|.
       // This is to make the behavior the same when
       // |invoke_python_verifier| is true or false.
@@ -147,8 +114,6 @@ void Generator::generate(
       */
     }
   }
-  // hash_succeed_info_map[2].push_back(3);
-  print_map(hash_succeed_info_map, "succeed_info_map.json");
 }
 
 void Generator::dfs(int gate_idx, int max_num_gates,
@@ -375,19 +340,12 @@ void Generator::dfs(int gate_idx, int max_num_gates,
   }
 }
 
-void Generator::bfs(
-    const std::vector<std::vector<CircuitSeq *>> &dags, int max_num_param_gates,
-    Dataset &dataset, std::vector<CircuitSeq *> *new_representatives,
-    bool invoke_python_verifier,
-    std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
-        &hash_succeed_info_map,
-    const EquivalenceSet *equiv_set, bool unique_parameters) {
-  // define a function about how to store the information about a new found dag
-  // if invoke_python_to_result is true, maintain equiv_set
-  // if it's false, set representatives.
-  auto try_to_add_to_result = [&](CircuitSeq *new_dag,
-                                  CircuitSeq *old_dag) mutable
-      -> std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>> {
+void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
+                    int max_num_param_gates, Dataset &dataset,
+                    std::vector<CircuitSeq *> *new_representatives,
+                    bool invoke_python_verifier,
+                    const EquivalenceSet *equiv_set, bool unique_parameters) {
+  auto try_to_add_to_result = [&](CircuitSeq *new_dag, CircuitSeq *old_dag) {
     // A new CircuitSeq with |current_max_num_gates| + 1 gates.
     if (invoke_python_verifier) {
       // We will verify the equivalence later in Python.
@@ -395,7 +353,7 @@ void Generator::bfs(
       if (!verifier_.redundant(context, equiv_set, new_dag)) {
         auto new_new_dag = std::make_unique<CircuitSeq>(*new_dag);
         auto new_new_dag_ptr = new_new_dag.get();
-        hash_succeed_info_map[old_dag->hash(context)].push_back(
+        dataset.succeed_info_map[old_dag->hash(context)].insert(
             new_new_dag->hash(context));
         dataset.insert(context, std::move(new_new_dag));
         if (new_representatives) {
@@ -404,15 +362,15 @@ void Generator::bfs(
           new_representatives->push_back(new_new_dag_ptr);
         }
       }
-    } else {
-      // If we will not verify the equivalence later, we should update
+    } else { // If we will not verify the equivalence later, we should update
       // the representatives in the context now.
       if (verifier_.redundant(context, new_dag)) {
-        return hash_succeed_info_map;
+        return;
       }
       // XXX: Try to insert to a set with hash value differing no more than 1.
       bool ret = dataset.insert_to_nearby_set_if_exists(
           context, std::make_unique<CircuitSeq>(*new_dag));
+      dataset.succeed_info_map[old_dag->hash(context)].insert(new_dag->hash(context));
       if (ret) {
         // The CircuitSeq's hash value is new to the dataset.
         // Note: this is the second instance of CircuitSeq we create in
@@ -425,10 +383,7 @@ void Generator::bfs(
         }
       }
     }
-    return hash_succeed_info_map;
   };
-  // use the result of the last iteration
-  // fore all dags
   for (auto &old_dag : dags.back()) {
     // Create a new CircuitSeq to avoid editing the old one.
     auto new_dag = std::make_unique<CircuitSeq>(*old_dag);
@@ -467,40 +422,38 @@ void Generator::bfs(
           }
           auto search_parameters =
               [&](int num_remaining_parameters,
-                  const InputParamMaskType &current_usage_mask, auto &search_parameters_ref /*feed in the lambda implementation to itself as a parameter*/) mutable
-              -> std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>> {
-            if (num_remaining_parameters == 0) {
-              bool ret = dag->add_gate(qubit_indices, parameter_indices, gate,
-                                       nullptr);
-              assert(ret);
-              hash_succeed_info_map = try_to_add_to_result(dag, old_dag);
-              ret = dag->remove_last_gate();
-              assert(ret);
-              return hash_succeed_info_map;
-            }
-
-            for (int p1 = 0; p1 < dag->get_num_total_parameters(); p1++) {
-              if (unique_parameters) {
-                if (current_usage_mask & input_param_masks[p1]) {
-                  // p1 contains an already used input parameter.
-                  continue;
+                  const InputParamMaskType &current_usage_mask, auto &search_parameters_ref /*feed in the lambda implementation to itself as a parameter*/) {
+                if (num_remaining_parameters == 0) {
+                  bool ret = dag->add_gate(qubit_indices, parameter_indices,
+                                           gate, nullptr);
+                  assert(ret);
+                  try_to_add_to_result(dag, old_dag);
+                  ret = dag->remove_last_gate();
+                  assert(ret);
+                  return;
                 }
-                parameter_indices.push_back(p1);
-                hash_succeed_info_map = search_parameters_ref(num_remaining_parameters - 1,
-                                      current_usage_mask |
-                                          input_param_masks[p1],
-                                      search_parameters_ref);
-                parameter_indices.pop_back();
-              } else {
-                parameter_indices.push_back(p1);
-                hash_succeed_info_map = search_parameters_ref(num_remaining_parameters - 1,
-                                      /*unused*/ 0, search_parameters_ref);
-                parameter_indices.pop_back();
-              }
-            }
-            return hash_succeed_info_map;
-          };
-          hash_succeed_info_map = search_parameters(gate->get_num_parameters(), input_param_usage_mask,
+
+                for (int p1 = 0; p1 < dag->get_num_total_parameters(); p1++) {
+                  if (unique_parameters) {
+                    if (current_usage_mask & input_param_masks[p1]) {
+                      // p1 contains an already used input parameter.
+                      continue;
+                    }
+                    parameter_indices.push_back(p1);
+                    search_parameters_ref(num_remaining_parameters - 1,
+                                          current_usage_mask |
+                                              input_param_masks[p1],
+                                          search_parameters_ref);
+                    parameter_indices.pop_back();
+                  } else {
+                    parameter_indices.push_back(p1);
+                    search_parameters_ref(num_remaining_parameters - 1,
+                                          /*unused*/ 0, search_parameters_ref);
+                    parameter_indices.pop_back();
+                  }
+                }
+              };
+          search_parameters(gate->get_num_parameters(), input_param_usage_mask,
                             search_parameters);
         }
       }
@@ -520,7 +473,7 @@ void Generator::bfs(
             bool ret =
                 dag->add_gate(qubit_indices, parameter_indices, gate, nullptr);
             assert(ret);
-            hash_succeed_info_map = try_to_add_to_result(dag, old_dag);
+            try_to_add_to_result(dag, old_dag);
             ret = dag->remove_last_gate();
             assert(ret);
             if (!gate->is_commutative()) {
@@ -528,7 +481,7 @@ void Generator::bfs(
               ret = dag->add_gate(qubit_indices, parameter_indices, gate,
                                   nullptr);
               assert(ret);
-              hash_succeed_info_map = try_to_add_to_result(dag, old_dag);
+              try_to_add_to_result(dag, old_dag);
               ret = dag->remove_last_gate();
               assert(ret);
               std::swap(qubit_indices[0], qubit_indices[1]);
@@ -540,6 +493,25 @@ void Generator::bfs(
       qubit_indices.pop_back();
     }
   }
+  std::string file_name = "succeed_info_map.json";
+  std::ofstream fout;
+  fout.open(file_name, std::ofstream::out);
+  fout << "[" << std::endl;
+  for (auto &i : dataset.succeed_info_map) {
+    fout << "[[\"" << std::hex << i.first << "\"],[";
+    bool first = true;
+    for (auto &j : i.second) {
+      if (!first)
+        fout << ",";
+      else
+        first = false;
+      fout << "\"" << std::hex << j << "\"";
+    }
+    fout << "]]," << std::endl;
+  }
+  fout << std::oct;
+  fout << "]" << std::endl;
+  fout.close();
 }
 
 void Generator::dfs_parameter_gates(

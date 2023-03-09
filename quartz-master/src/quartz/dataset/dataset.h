@@ -2,6 +2,9 @@
 
 #include "quartz/circuitseq/circuitseq.h"
 #include "quartz/context/context.h"
+#include "utils/utils.h"
+#include <map>
+#include <set>
 
 #include <unordered_set>
 
@@ -41,5 +44,6 @@ public:
   std::unordered_map<CircuitSeqHashType,
                      std::vector<std::unique_ptr<CircuitSeq>>>
       dataset;
+  std::map<CircuitSeqHashType, std::set<CircuitSeqHashType>> succeed_info_map;
 };
 } // namespace quartz

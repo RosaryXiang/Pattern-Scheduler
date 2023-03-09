@@ -71,23 +71,6 @@ public:
           nullptr);
 
 private:
-  void try_to_add_to_result(
-      CircuitSeq *new_dag, CircuitSeq *old_dag, bool invoke_python_verifier,
-      Dataset &dataset, Context *context, const EquivalenceSet *equiv_set,
-      std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
-          &hash_succeed_info_map,
-      std::vector<CircuitSeq *> *new_representatives);
-  void search_parameters(
-      CircuitSeq *dag, CircuitSeq *old_dag, bool invoke_python_verifier,
-      Dataset &dataset, Context *context, const EquivalenceSet *equiv_set,
-      std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
-          &hash_succeed_info_map,
-      std::vector<CircuitSeq *> *new_representatives,
-      int num_remaining_parameters,
-      const InputParamMaskType &current_usage_mask,
-      std::vector<int> &qubit_indices, std::vector<int> &parameter_indices,
-      quartz::Gate *gate, bool unique_parameters,
-      std::vector<InputParamMaskType> &input_param_masks);
   void dfs(int gate_idx, int max_num_gates, int max_remaining_param_gates,
            CircuitSeq *dag, std::vector<int> &used_parameters, Dataset &dataset,
            bool restrict_search_space, bool unique_parameters);
@@ -96,10 +79,8 @@ private:
   void bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
            int max_num_param_gates, Dataset &dataset,
            std::vector<CircuitSeq *> *new_representatives,
-           bool invoke_python_verifier,
-           std::map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
-               &hash_succeed_info_map,
-           const EquivalenceSet *equiv_set, bool unique_parameters);
+           bool invoke_python_verifier, const EquivalenceSet *equiv_set,
+           bool unique_parameters);
 
   void dfs_parameter_gates(std::unique_ptr<CircuitSeq> dag, int remaining_gates,
                            int max_unused_params, int current_unused_params,

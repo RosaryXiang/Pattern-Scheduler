@@ -35,6 +35,7 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
   auto start = std::chrono::steady_clock::now();
   decltype(start - start) verification_time{0};
   const bool invoke_python_verifier = (num_input_parameters > 0);
+  std::cout << "verifier is " << invoke_python_verifier << std::endl;
   // We are not going to invoke the Python verifier when |num_input_parameters|
   // is 0. This will be simply verifying two static matrices are equal.
   //
