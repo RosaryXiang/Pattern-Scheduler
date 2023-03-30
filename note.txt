@@ -24,3 +24,9 @@
 Para list = Q for Qubit + ID; P for Para + ID
 
 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
+
+num of eccs = 86
+num of transformations = 246
+
+num of eccs = 126
+num of transformations = 366

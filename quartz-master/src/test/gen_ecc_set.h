@@ -36,6 +36,8 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
   decltype(start - start) verification_time{0};
   const bool invoke_python_verifier = (num_input_parameters > 0);
   std::cout << "verifier is " << invoke_python_verifier << std::endl;
+  /*verifier is 0*/
+
   // We are not going to invoke the Python verifier when |num_input_parameters|
   // is 0. This will be simply verifying two static matrices are equal.
   //
@@ -47,6 +49,7 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
                max_num_param_gates, &dataset1, invoke_python_verifier,
                &equiv_set, unique_parameters, /*verbose=*/
                true, &verification_time);
+  /*generate_representative_set is true*/
   if (!generate_representative_set) {
     // For better performance
     dataset1.remove_singletons(&ctx);
@@ -62,7 +65,8 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
     verification_time += end2 - start2;
     equiv_set.clear(); // this is necessary
     equiv_set.load_json(&ctx, file_prefix + "pruning.json");
-  } else {
+  }/*verifier is 0, so run the else part*/ 
+  else {
     // Create the ECC set by ourselves.
     equiv_set.clear(); // this is necessary
     for (auto &it : dataset1.dataset) {

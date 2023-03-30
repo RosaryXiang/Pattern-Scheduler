@@ -2,6 +2,7 @@
 #include "../context/context.h"
 #include "../gate/gate.h"
 #include "../parser/qasm_parser.h"
+#include "circuitseq/circuitgate.h"
 #include "utils/utils.h"
 
 #include <algorithm>
@@ -145,6 +146,7 @@ bool CircuitSeq::less_than(const CircuitSeq &other) const {
 bool CircuitSeq::add_gate(const std::vector<int> &qubit_indices,
                           const std::vector<int> &parameter_indices, Gate *gate,
                           int *output_para_index) {
+//qubit_indices is 
   if (gate->get_num_qubits() != qubit_indices.size())
     return false;
   if (gate->get_num_parameters() != parameter_indices.size())
@@ -161,14 +163,18 @@ bool CircuitSeq::add_gate(const std::vector<int> &qubit_indices,
       return false;
   auto circuit_gate = std::make_unique<CircuitGate>();
   circuit_gate->gate = gate;
+  //update circuit's info about gate
   for (auto qubit_idx : qubit_indices) {
+    //each of the qubit's output wire should be circuit_gate's input wire.
     circuit_gate->input_wires.push_back(outputs[qubit_idx]);
+    //each of the qubit's output wire should add circuit_gate to its ouput_gates.
     outputs[qubit_idx]->output_gates.push_back(circuit_gate.get());
   }
   for (auto para_idx : parameter_indices) {
     circuit_gate->input_wires.push_back(parameters[para_idx]);
     parameters[para_idx]->output_gates.push_back(circuit_gate.get());
   }
+  // update circuit's info about wires
   if (gate->is_parameter_gate()) {
     auto wire = std::make_unique<CircuitWire>();
     wire->type = CircuitWire::internal_param;
@@ -504,7 +510,7 @@ std::pair<InputParamMaskType, std::vector<InputParamMaskType>>
 CircuitSeq::get_input_param_mask() const {
   std::vector<InputParamMaskType> param_mask(get_num_total_parameters());
   for (int i = 0; i < get_num_input_parameters(); i++) {
-    param_mask[i] = 1 << i;
+    param_mask[i] = 1 << i; //move i to left by i steps
   }
   for (int i = get_num_input_parameters(); i < get_num_total_parameters();
        i++) {
@@ -514,7 +520,7 @@ CircuitSeq::get_input_param_mask() const {
       param_mask[i] |= param_mask[input_wire->index];
     }
   }
-  InputParamMaskType usage_mask{0};
+  InputParamMaskType usage_mask{0}; //unisgned long long
   for (auto &circuit_gate : gates) {
     // Only consider quantum gate usages of parameters
     if (circuit_gate->gate->is_parametrized_gate()) {
@@ -1361,6 +1367,22 @@ std::vector<CircuitGate *> CircuitSeq::last_quantum_gates() const {
     }
   }
   return result;
+}
+
+bool CircuitSeq::same_seq(const CircuitSeq &seq1, const CircuitSeq &seq2){
+  int gate_num1 = seq1.get_num_gates();
+  int gate_num2 = seq2.get_num_gates();
+  if(gate_num1 != gate_num2 + 1){
+    std::cout << "gate_num wrong!" << std::endl;
+    return false;
+  }
+  for(int i = 0; i< gate_num2; i++){
+    if(!seq1.same_gate(seq1, i, seq2, i)){
+      std::cout << "The "<< i << " gate wrong!" << std::endl;
+      return false;
+    }
+  }
+  return true;
 }
 
 bool CircuitSeq::same_gate(const CircuitSeq &seq1, int index1,

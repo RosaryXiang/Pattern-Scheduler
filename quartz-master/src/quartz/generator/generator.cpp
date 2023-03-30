@@ -1,10 +1,12 @@
 #include "generator.h"
 #include "../dataset/equivalence_set.h"
 #include "circuitseq/circuitseq.h"
+#include "context/context.h"
 #include "utils/utils.h"
 #include <fstream>
 
 #include <cassert>
+#include <string>
 
 namespace quartz {
 void Generator::generate_dfs(int num_qubits, int max_num_input_parameters,
@@ -114,6 +116,25 @@ void Generator::generate(
       */
     }
   }
+  std::string file_name = "succeed_info_map.json";
+  std::ofstream fout;
+  fout.open(file_name, std::ofstream::out);
+  fout << "[" << std::endl;
+  for (auto &i : dataset->succeed_info_map) {
+    fout << "[[\"" << std::hex << i.first << "\"],[";
+    bool first = true;
+    for (auto &j : i.second) {
+      if (!first)
+        fout << ",";
+      else
+        first = false;
+      fout << "\"" << std::hex << j << "\"";
+    }
+    fout << "]]," << std::endl;
+  }
+  fout << std::oct;
+  fout << "]" << std::endl;
+  fout.close();
 }
 
 void Generator::dfs(int gate_idx, int max_num_gates,
@@ -345,6 +366,9 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
                     std::vector<CircuitSeq *> *new_representatives,
                     bool invoke_python_verifier,
                     const EquivalenceSet *equiv_set, bool unique_parameters) {
+  // std::ofstream foutc;
+  // foutc.open("check.txt");
+  // int wrong_cnt = 0;
   auto try_to_add_to_result = [&](CircuitSeq *new_dag, CircuitSeq *old_dag) {
     // A new CircuitSeq with |current_max_num_gates| + 1 gates.
     if (invoke_python_verifier) {
@@ -362,7 +386,9 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
           new_representatives->push_back(new_new_dag_ptr);
         }
       }
-    } else { // If we will not verify the equivalence later, we should update
+    }
+    /*invoke_python_verifier = false*/
+    else { // If we will not verify the equivalence later, we should update
       // the representatives in the context now.
       if (verifier_.redundant(context, new_dag)) {
         return;
@@ -370,7 +396,16 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       // XXX: Try to insert to a set with hash value differing no more than 1.
       bool ret = dataset.insert_to_nearby_set_if_exists(
           context, std::make_unique<CircuitSeq>(*new_dag));
-      dataset.succeed_info_map[old_dag->hash(context)].insert(new_dag->hash(context));
+      dataset.succeed_info_map[old_dag->hash(context)].insert(
+          new_dag->hash(context));
+      // foutc << "old_dag->hash() = " << std::hex << old_dag->hash(context)
+      //           << std::endl;
+      // foutc << old_dag->to_string() << std::endl;
+      // foutc << "new_dag->hash() = " << new_dag->hash(context) << std::oct
+      //           << std::endl;
+      // foutc << new_dag->to_string() << std::endl;
+      // wrong_cnt++;
+
       if (ret) {
         // The CircuitSeq's hash value is new to the dataset.
         // Note: this is the second instance of CircuitSeq we create in
@@ -388,12 +423,15 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
     // Create a new CircuitSeq to avoid editing the old one.
     auto new_dag = std::make_unique<CircuitSeq>(*old_dag);
     auto dag = new_dag.get();
-    InputParamMaskType input_param_usage_mask;
+    // ParaMaskType record if a parameter has been used
+    InputParamMaskType input_param_usage_mask; // unsigned long long
     std::vector<InputParamMaskType> input_param_masks;
+    // usually true
     if (unique_parameters) {
       std::tie(input_param_usage_mask, input_param_masks) =
           dag->get_input_param_mask();
     }
+    // before adding the last gate, whether a quibit is used in the circuit
     std::vector<bool> last_gate_used_qubit_index(dag->get_num_qubits(), false);
     int last_gate_min_qubit_index = -1;
     if (dag->get_num_gates() > 0) {
@@ -414,12 +452,14 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       // with index at least |last_gate_min_qubit_index| to form a canonical
       // sequence.
       if (q1 >= last_gate_min_qubit_index) {
+        // for all supported quantum gates
         for (const auto &idx : context->get_supported_quantum_gates()) {
           Gate *gate = context->get_gate(idx);
           if (gate->get_num_qubits() != 1) {
             assert(gate->get_num_qubits() == 2);
             continue;
           }
+          // for all gates that their gate num equal to one
           auto search_parameters =
               [&](int num_remaining_parameters,
                   const InputParamMaskType &current_usage_mask, auto &search_parameters_ref /*feed in the lambda implementation to itself as a parameter*/) {
@@ -427,6 +467,13 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
                   bool ret = dag->add_gate(qubit_indices, parameter_indices,
                                            gate, nullptr);
                   assert(ret);
+                  // if(!old_dag->same_seq(*old_dag, *new_dag)){
+                  //   std::cout << "succeed_info_map wrong!" << std::endl;
+                  //   std::cout << "old_dag->hash() = " << std::hex <<
+                  //   old_dag->hash(context)<< std::endl; std::cout <<
+                  //   "new_dag->hash() = " << new_dag->hash(context)<< std::oct
+                  //   <<std::endl;
+                  // }
                   try_to_add_to_result(dag, old_dag);
                   ret = dag->remove_last_gate();
                   assert(ret);
@@ -493,25 +540,7 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       qubit_indices.pop_back();
     }
   }
-  std::string file_name = "succeed_info_map.json";
-  std::ofstream fout;
-  fout.open(file_name, std::ofstream::out);
-  fout << "[" << std::endl;
-  for (auto &i : dataset.succeed_info_map) {
-    fout << "[[\"" << std::hex << i.first << "\"],[";
-    bool first = true;
-    for (auto &j : i.second) {
-      if (!first)
-        fout << ",";
-      else
-        first = false;
-      fout << "\"" << std::hex << j << "\"";
-    }
-    fout << "]]," << std::endl;
-  }
-  fout << std::oct;
-  fout << "]" << std::endl;
-  fout.close();
+  // std::cout << "wrong_cnt = " << wrong_cnt << std::endl;
 }
 
 void Generator::dfs_parameter_gates(

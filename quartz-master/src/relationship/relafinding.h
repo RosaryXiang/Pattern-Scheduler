@@ -4,29 +4,34 @@
 #include <vector>
 using CircuitSeqHashType = unsigned long long;
 
-class ECC {
+class DAG {
 public:
-  ECC(std::string content) { dag = content; }
+  DAG(std::string content) { dag = content; }
   std::string content() { return dag; }
-  void print_info();
+  void print_info(std::string);
   void extract_info();
 
-private:
+public:
   std::string dag;
-  std::vector<std::pair<std::string , std::vector<std::string>>> gate_info;
+  //first string = gate type
+  //vector<string> = vector of op
+  std::vector<std::pair<std::string, std::vector<std::string>>> gate_info;
   int gate_num = 0;
   int qubit_num = 0;
   int para_num = 0;
 };
 
-class ECCSet {
+class ECC {
 public:
-  void push_dag(std::string dag) { dags.push_back(ECC(dag)); }
+  void push_dag(std::string dag) { dags.push_back(DAG(dag)); }
   void clear() { dags.clear(); }
-  std::vector<ECC> get_dags() { return dags; }
+  void set_rep(DAG rep){rep_ = rep;}
+  std::vector<DAG> get_dags() { return dags; }
+  DAG get_rep(){return rep_;}
 
 private:
-  std::vector<ECC> dags;
+  DAG rep_ = DAG("");
+  std::vector<DAG> dags;
 };
 
 class DataExtracter {
@@ -37,14 +42,24 @@ public:
   void add_relationship(CircuitSeqHashType repFather,
                         std::vector<CircuitSeqHashType> &repChildren);
   bool load_relationships(std::string);
+  void clean_wrongly_linked_rela();
   void print_loaded_relationships(std::string);
+  void print_front_rep(std::string);
   bool load_eccs(std::string, std::string);
   bool print_QCIR_patterns(std::string);
+  bool QCIR_gate(bool &, std::string &, std::string &);
+  void print_rela_in_eccs(std::string);
 
 public:
   std::unordered_map<CircuitSeqHashType, std::string> representatives;
-  std::unordered_map<CircuitSeqHashType, std::vector<CircuitSeqHashType>>
+  std::unordered_map<CircuitSeqHashType, std::unordered_set<CircuitSeqHashType>>
       relationships;
   std::unordered_map<std::string, CircuitSeqHashType> dag_to_hash;
-  std::unordered_map<CircuitSeqHashType, ECCSet> eccs;
+  std::unordered_map<CircuitSeqHashType, ECC> eccs;
+
+public:
+  std::unordered_map<std::string, std::string> single_gates = {
+      {"x", "X"}, {"y", "Y"}, {"z", "Z"}, {"h", "H"}};
+  std::unordered_map<std::string, std::string> binary_gates = {{"cx", "CNOT"},
+                                                               {"rz", "RZ"}};
 };

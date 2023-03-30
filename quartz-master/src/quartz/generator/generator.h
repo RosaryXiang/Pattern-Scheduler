@@ -81,6 +81,11 @@ private:
            std::vector<CircuitSeq *> *new_representatives,
            bool invoke_python_verifier, const EquivalenceSet *equiv_set,
            bool unique_parameters);
+  void bfs_the_second_time(const std::vector<std::vector<CircuitSeq *>> &dags,
+           int max_num_param_gates, Dataset &dataset,
+           std::vector<CircuitSeq *> *new_representatives,
+           bool invoke_python_verifier, const EquivalenceSet *equiv_set,
+           bool unique_parameters);
 
   void dfs_parameter_gates(std::unique_ptr<CircuitSeq> dag, int remaining_gates,
                            int max_unused_params, int current_unused_params,

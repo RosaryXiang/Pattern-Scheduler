@@ -139,6 +139,7 @@ public:
 
   static bool same_gate(const CircuitSeq &seq1, int index1,
                         const CircuitSeq &seq2, int index2);
+  bool same_seq(const CircuitSeq &seq1, const CircuitSeq &seq2);
 
   static bool same_gate(CircuitGate *gate1, CircuitGate *gate2);
 
