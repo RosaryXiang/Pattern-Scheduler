@@ -30,3 +30,43 @@ num of transformations = 246
 
 num of eccs = 126
 num of transformations = 366
+
+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
+
+
+{
+    "gates": [
+        {
+            "gateName": "X",
+            "qubitNum": 1,
+            "angleNum": 0,
+            "cost": 1
+        },{
+            "gateName": "Y",
+            "qubitNum": 1,
+            "angleNum": 0,
+            "cost": 1
+        },{
+            "gateName": "Z",
+            "qubitNum": 1,
+            "angleNum": 0,
+            "cost": 1
+        },{
+            "gateName": "H",
+            "qubitNum": 1,
+            "angleNum": 0,
+            "cost": 1
+        },
+        {
+            "gateName": "RZ",
+            "qubitNum": 1,
+            "angleNum": 1,
+            "cost": 1
+        },
+        {
+            "gateName": "CNOT",
+            "qubitNum": 2,
+            "angleNum": 0,
+            "cost": 4
+        }
+    ],

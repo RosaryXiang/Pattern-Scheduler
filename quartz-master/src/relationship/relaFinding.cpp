@@ -70,15 +70,26 @@ void DataExtracter::print_front_rep(std::string file_name) {
   /* 如果某个rep是由其他rep生成的，将它从hash_set中去掉*/
   for (auto &rela : relationships) {
     for (auto &sec : rela.second) {
-      hash_set.erase(sec);
+      if (hash_set.find(sec) != hash_set.end())
+        hash_set.erase(sec);
+      else if (hash_set.find(sec - 1) != hash_set.end())
+        hash_set.erase(sec - 1);
+      else {
+        hash_set.erase(sec + 1);
+      }
     }
   }
   fout << std::hex;
   for (auto &hash : hash_set) {
     /* 只输出在ecc中有优化价值的rep*/
-    if (eccs.find(hash) != eccs.end() || eccs.find(hash - 1) != eccs.end() ||
-        eccs.find(hash + 1) != eccs.end())
+    if (eccs.find(hash) != eccs.end())
       fout << hash << std::endl;
+    else if (eccs.find(hash - 1) != eccs.end())
+      fout << hash - 1 << std::endl;
+    else if (eccs.find(hash + 1) != eccs.end()) {
+      fout << hash + 1 << std::endl;
+    }
+    // fout << hash <<std::endl;
   }
   fout.close();
   /* 输出结果为空 说明ecc中的rep均不是由其他rep生成的, 以下为验证*/
@@ -344,51 +355,57 @@ bool DataExtracter::print_QCIR_patterns(std::string file_name) {
     rep.extract_info();
     dst += "\t\t\t\t\"dst\": {\n\t\t\t\t\t\"cost\": ";
     dst += std::to_string(rep.gate_num);
-    dst += ",\n\t\t\t\t\t\"circuit\": {\n";
-    bool rep_first = true;
-    for (auto &gate : rep.gate_info) {
-      if (!rep_first)
-        dst += ",\n";
-      else
-        rep_first = false;
-      auto find_gate_type = QCIR_gate(is_single, gate.first, qcir_name);
-      if (find_gate_type) {
-        dst += "\t\t\t\t\t\t\"";
-        dst += qcir_name;
-        dst += "\": [";
-        ss.clear();
-        ss << gate.second[0];
-        if (is_single) {
-          ss >> c >> index;
-          dst += std::to_string(index);
-          dst += "]";
-        } else {
-          /* 此处因为quartz不支持数值作为操作数，只支持量子比特作为操作数，故不考虑操作数为P的情况
-           */
-          ss >> c >> index;
-          dst += std::to_string(index);
-          dst += ", ";
+    if (rep.gate_info.size() == 0)
+      dst += ",\n\t\t\t\t\t\"circuit\": {}\n\t\t\t\t}";
+    else {
+      dst += ",\n\t\t\t\t\t\"circuit\": {\n";
+      bool rep_first = true;
+      for (auto &gate : rep.gate_info) {
+        if (!rep_first)
+          dst += ",\n";
+        else
+          rep_first = false;
+        auto find_gate_type = QCIR_gate(is_single, gate.first, qcir_name);
+        if (find_gate_type) {
+          dst += "\t\t\t\t\t\t\"";
+          dst += qcir_name;
+          dst += "\": [";
           ss.clear();
-          ss << gate.second[1];
-          ss >> c >> index;
-          dst += std::to_string(index);
-          dst += "]";
+          ss << gate.second[0];
+          if (is_single) {
+            ss >> c >> index;
+            dst += std::to_string(index);
+            dst += "]";
+          } else {
+            /* 此处因为quartz不支持数值作为操作数，只支持量子比特作为操作数，故不考虑操作数为P的情况
+             */
+            ss >> c >> index;
+            dst += std::to_string(index);
+            dst += ", ";
+            ss.clear();
+            ss << gate.second[1];
+            ss >> c >> index;
+            dst += std::to_string(index);
+            dst += "]";
+          }
+        } else {
+          std::cout << "transfer to qcir gate failed!" << std::endl;
+          return false;
         }
-      } else {
-        std::cout << "transfer to qcir gate failed!" << std::endl;
-        return false;
       }
+      dst += "\n\t\t\t\t\t}\n\t\t\t\t}";
     }
-    dst += "\n\t\t\t\t\t}\n\t\t\t\t}";
     fout << "\t\t\"hash" << std::hex << ecc.first << std::oct << "\": ["
          << std::endl;
     is_first[1] = true;
     for (auto &dag : ecc.second.get_dags()) {
+      dag.extract_info();
+      if(dag.gate_info.size()==0)
+        continue;
       if (!is_first[1])
         fout << "," << std::endl;
       else
         is_first[1] = false;
-      dag.extract_info();
       fout << "\t\t\t{" << std::endl;
       fout << "\t\t\t\t\"qubits\": " << dag.qubit_num << "," << std::endl;
       fout << "\t\t\t\t\"src\": {" << std::endl;
@@ -462,13 +479,11 @@ void DAG::extract_info() {
   std::string str = dag;
   if (str.size() == 0)
     return;
-  std::unordered_set<std::string> qubits_set, paras_set;
-  qubits_set.clear();
-  paras_set.clear();
-  std::stringstream ss;
+  int tmp_num;
+  std::stringstream ss, ss2;
   ss.clear();
   ss << str;
-  char tmp_char, op_type;
+  char tmp_char;
   tmp_char = ',';
   std::string gate_type, op1, op2;
   while (tmp_char == ',') {
@@ -486,76 +501,65 @@ void DAG::extract_info() {
     if (gate_type == "cx") {
       ss.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
       ss >> tmp_char;
-      op_type = tmp_char;
       while (tmp_char != '\"') {
         op1.push_back(tmp_char);
         ss >> tmp_char;
       }
       ss >> tmp_char;
       // std::cout << "op1 = " << op1 << std::endl;
-      if (op_type == 'Q') {
-        qubits_set.insert(op1);
-      } else {
-        paras_set.insert(op1);
-      }
       ss.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
       ss >> tmp_char;
-      op_type = tmp_char;
       while (tmp_char != '\"') {
         op2.push_back(tmp_char);
         ss >> tmp_char;
       }
       ss >> tmp_char;
       // std::cout << "op2 = " << op2 << std::endl;
-      if (op_type == 'Q') {
-        qubits_set.insert(op2);
-      } else {
-        paras_set.insert(op2);
-      }
       gate_info.push_back({gate_type, {op1, op2}});
     } else {
       ss.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
       ss >> tmp_char;
-      op_type = tmp_char;
       while (tmp_char != '\"') {
         op1.push_back(tmp_char);
         ss >> tmp_char;
       }
       // std::cout << "op = " << op1 << std::endl;
       ss >> tmp_char;
-      if (op_type == 'Q') {
-        qubits_set.insert(op1);
-      } else {
-        paras_set.insert(op1);
-      }
       gate_info.push_back({gate_type, {op1}});
     }
     ss.ignore(std::numeric_limits<std::streamsize>::max(), ']');
     ss.ignore(std::numeric_limits<std::streamsize>::max(), ']');
     ss >> tmp_char;
   }
-  qubit_num = qubits_set.size();
-  para_num = paras_set.size();
+  for (auto &gate : gate_info) {
+    for (auto &op : gate.second) {
+      ss2.clear();
+      ss2 << op;
+      ss2 >> tmp_char >> tmp_num;
+      if (tmp_char == 'Q' && tmp_num > this->qubit_num)
+        this->qubit_num = tmp_num;
+      else if (tmp_char == 'P' && tmp_num > this->para_num)
+        this->para_num = tmp_num;
+    }
+  }
+  this->qubit_num++;
+  this->para_num++;
 }
 
 void DataExtracter::print_rela_in_eccs(std::string file_name) {
   std::ofstream fout;
   fout.open(file_name, std::ofstream::out);
-  std::unordered_set<CircuitSeqHashType> eccs_hash_set;
-  for (auto &ecc : eccs) {
-    eccs_hash_set.insert(ecc.first);
-  }
   fout << std::hex;
   for (auto &rela : relationships) {
-    if (eccs_hash_set.find(rela.first) == eccs_hash_set.end())
+    if (eccs.find(rela.first) == eccs.end())
       continue;
     fout << "[[\"" << rela.first << "\",[";
     for (auto &sec : rela.second) {
-      if (eccs_hash_set.find(sec) != eccs_hash_set.end())
+      if (eccs.find(sec) != eccs.end())
         fout << "\"" << sec << "\",";
-      else if (eccs_hash_set.find(sec + 1) != eccs_hash_set.end())
+      else if (eccs.find(sec + 1) != eccs.end())
         fout << "\"" << sec + 1 << "\",";
-      else if (eccs_hash_set.find(sec - 1) != eccs_hash_set.end())
+      else if (eccs.find(sec - 1) != eccs.end())
         fout << "\"" << sec - 1 << "\",";
     }
     fout << "]]," << std::endl;
@@ -567,23 +571,19 @@ int main() {
   dataExtracter.load_representatives("representatives.json");
   // dataExtracter.print_loaded_representatives("rep_out.json");
   dataExtracter.print_dag_to_hash("dag_to_hash.json");
+  dataExtracter.load_eccs("eccs.json", "loaded_eccs.json");
+  // for (auto &eccs : dataExtracter.eccs) {
+  //   for (auto &ecc : eccs.second.get_dags()) {
+  //     ecc.extract_info();
+  //     // it's ofstream::app
+  //     ecc.print_info("gate_info.json");
+  //   }
+  // }
   dataExtracter.load_relationships("relationships.json");
   dataExtracter.print_loaded_relationships("rela_out.json");
   dataExtracter.clean_wrongly_linked_rela();
   dataExtracter.print_loaded_relationships("rela_after_clean.json");
   dataExtracter.print_front_rep("front_rep.json");
-  dataExtracter.load_eccs("eccs.json", "loaded_eccs.json");
-  // DAG tmp_ecc("[\"cx\", [\"Q1\", \"Q0\"],[\"Q1\", \"Q0\"]],[\"tdg\", "
-  //             "[\"Q0\"],[\"Q0\"]],[\"cx\", [\"Q1\", \"Q0\"],[\"Q1\",
-  //             \"Q0\"]]");
-  // tmp_ecc.extract_info();
   dataExtracter.print_QCIR_patterns("pattern_in_quartz.json");
   dataExtracter.print_rela_in_eccs("rela_in_eccs.json");
-  // for (auto &eccs : dataExtracter.eccs) {
-  //   for (auto &ecc : eccs.second.get_dags()) {
-  //     ecc.extract_info();
-  //    //it's ofstream::app
-  //     ecc.print_info("gate_info.json");
-  //   }
-  // }
 }
