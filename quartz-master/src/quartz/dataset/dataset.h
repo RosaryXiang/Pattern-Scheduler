@@ -44,6 +44,6 @@ public:
   std::unordered_map<CircuitSeqHashType,
                      std::vector<std::unique_ptr<CircuitSeq>>>
       dataset;
-  std::map<CircuitSeqHashType, std::set<CircuitSeqHashType>> succeed_info_map;
+  std::map<std::string, std::set<std::string>> succeed_info_map;
 };
 } // namespace quartz

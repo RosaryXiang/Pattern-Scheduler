@@ -2,6 +2,7 @@
 
 #include "quartz/context/context.h"
 #include "quartz/generator/generator.h"
+#include <fstream>
 
 namespace quartz {
 void gen_ecc_set(const std::vector<GateType> &supported_gates,

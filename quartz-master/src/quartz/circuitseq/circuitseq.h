@@ -88,6 +88,7 @@ public:
   int remove_unused_internal_parameters();
   void print(Context *ctx) const;
   [[nodiscard]] std::string to_string() const;
+  std::string compact_string() const;
   [[nodiscard]] std::string to_json() const;
   static std::unique_ptr<CircuitSeq> read_json(Context *ctx, std::istream &fin);
   static std::unique_ptr<CircuitSeq>

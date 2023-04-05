@@ -850,6 +850,38 @@ std::string CircuitSeq::to_string() const {
   return result;
 }
 
+std::string CircuitSeq::compact_string() const{
+  std::string result;
+  result += "[";
+  bool is_first = true;
+  for(auto &gate : gates){
+    if(is_first)
+      is_first = false;
+    else
+      result += ",";
+    result +="[\"";
+    result+= gate_type_name(gate->gate->tp);
+    result += "\", [";
+    bool is_first_sec = true;
+    for(auto &para : gate->input_wires){
+      if(is_first_sec)
+        is_first_sec = false;
+      else
+        result += ",";
+      result += "\"";
+      if(para->is_qubit())
+        result +="Q";
+      else
+        result += "P";
+      result += std::to_string(para->index);
+      result += "\"";
+    }
+    result += "]]";
+  }
+  result += "]";
+  return result;
+}
+
 std::string CircuitSeq::to_json() const {
   std::string result;
   result += "[";

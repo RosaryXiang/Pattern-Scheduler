@@ -52,7 +52,7 @@ public:
 
 public:
   std::unordered_map<CircuitSeqHashType, std::string> representatives;
-  std::unordered_map<CircuitSeqHashType, std::unordered_set<CircuitSeqHashType>>
+  std::unordered_map<std::string, std::unordered_set<std::string>>
       relationships;
   std::unordered_map<std::string, CircuitSeqHashType> dag_to_hash;
   std::unordered_map<CircuitSeqHashType, ECC> eccs;

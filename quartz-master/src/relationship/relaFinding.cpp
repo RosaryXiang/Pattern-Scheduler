@@ -63,33 +63,21 @@ void DataExtracter::print_loaded_representatives(std::string file_name) {
 void DataExtracter::print_front_rep(std::string file_name) {
   std::ofstream fout;
   fout.open(file_name, std::ifstream::out);
-  std::unordered_set<CircuitSeqHashType> hash_set;
-  for (auto &rep : representatives) {
-    hash_set.insert(rep.first);
+  std::unordered_set<std::string> dag_set;
+  for (auto &rela : relationships) {
+    dag_set.insert(rela.first);
   }
   /* 如果某个rep是由其他rep生成的，将它从hash_set中去掉*/
   for (auto &rela : relationships) {
     for (auto &sec : rela.second) {
-      if (hash_set.find(sec) != hash_set.end())
-        hash_set.erase(sec);
-      else if (hash_set.find(sec - 1) != hash_set.end())
-        hash_set.erase(sec - 1);
-      else {
-        hash_set.erase(sec + 1);
+      if (dag_set.find(sec) != dag_set.end()) {
+        dag_set.erase(sec);
       }
     }
   }
-  fout << std::hex;
-  for (auto &hash : hash_set) {
+  for (auto &front_dag : dag_set) {
     /* 只输出在ecc中有优化价值的rep*/
-    if (eccs.find(hash) != eccs.end())
-      fout << hash << std::endl;
-    else if (eccs.find(hash - 1) != eccs.end())
-      fout << hash - 1 << std::endl;
-    else if (eccs.find(hash + 1) != eccs.end()) {
-      fout << hash + 1 << std::endl;
-    }
-    // fout << hash <<std::endl;
+    fout << front_dag << std::endl;
   }
   fout.close();
   /* 输出结果为空 说明ecc中的rep均不是由其他rep生成的, 以下为验证*/
@@ -102,6 +90,7 @@ void DataExtracter::print_front_rep(std::string file_name) {
   //   }
   // }
 }
+
 void DataExtracter::print_dag_to_hash(std::string file_name) {
   std::ofstream fout;
   fout.open(file_name, std::ifstream::out);
@@ -128,7 +117,7 @@ void DataExtracter::add_relationship(
           }
         }
       }
-      relationships[repFather + offset] = realChildren;
+      // relationships[repFather + offset] = realChildren;
       break;
     }
   }
@@ -164,7 +153,7 @@ bool DataExtracter::load_relationships(std::string file_name) {
   fin.close();
   return true;
 }
-
+/*
 void DataExtracter::clean_wrongly_linked_rela() {
   std::unordered_set<unsigned long long> erase_set;
   for (auto &rela : relationships) {
@@ -198,7 +187,7 @@ void DataExtracter::clean_wrongly_linked_rela() {
       rela.second.erase(i);
     }
   }
-}
+}*/
 
 void DataExtracter::print_loaded_relationships(std::string file_name) {
   std::ofstream fout;
@@ -400,7 +389,7 @@ bool DataExtracter::print_QCIR_patterns(std::string file_name) {
     is_first[1] = true;
     for (auto &dag : ecc.second.get_dags()) {
       dag.extract_info();
-      if(dag.gate_info.size()==0)
+      if (dag.gate_info.size() == 0)
         continue;
       if (!is_first[1])
         fout << "," << std::endl;
@@ -545,7 +534,7 @@ void DAG::extract_info() {
   this->qubit_num++;
   this->para_num++;
 }
-
+/*
 void DataExtracter::print_rela_in_eccs(std::string file_name) {
   std::ofstream fout;
   fout.open(file_name, std::ofstream::out);
@@ -564,7 +553,7 @@ void DataExtracter::print_rela_in_eccs(std::string file_name) {
     }
     fout << "]]," << std::endl;
   }
-}
+}*/
 
 int main() {
   DataExtracter dataExtracter;

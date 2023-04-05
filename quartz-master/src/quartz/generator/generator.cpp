@@ -119,21 +119,19 @@ void Generator::generate(
   std::string file_name = "succeed_info_map.json";
   std::ofstream fout;
   fout.open(file_name, std::ofstream::out);
-  fout << "[" << std::endl;
+  // fout << dataset->succeed_info_map.begin()->first << std::endl;
   for (auto &i : dataset->succeed_info_map) {
-    fout << "[[\"" << std::hex << i.first << "\"],[";
+    fout << i.first << ", {";
     bool first = true;
     for (auto &j : i.second) {
       if (!first)
         fout << ",";
       else
         first = false;
-      fout << "\"" << std::hex << j << "\"";
+      fout << j ;
     }
-    fout << "]]," << std::endl;
+    fout << "}"<< std::endl;
   }
-  fout << std::oct;
-  fout << "]" << std::endl;
   fout.close();
 }
 
@@ -377,8 +375,8 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       if (!verifier_.redundant(context, equiv_set, new_dag)) {
         auto new_new_dag = std::make_unique<CircuitSeq>(*new_dag);
         auto new_new_dag_ptr = new_new_dag.get();
-        dataset.succeed_info_map[old_dag->hash(context)].insert(
-            new_new_dag->hash(context));
+        dataset.succeed_info_map[old_dag->compact_string()].insert(
+            new_new_dag->compact_string());
         dataset.insert(context, std::move(new_new_dag));
         if (new_representatives) {
           // Warning: this is not the new representatives -- only
@@ -396,8 +394,8 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       // XXX: Try to insert to a set with hash value differing no more than 1.
       bool ret = dataset.insert_to_nearby_set_if_exists(
           context, std::make_unique<CircuitSeq>(*new_dag));
-      dataset.succeed_info_map[old_dag->hash(context)].insert(
-          new_dag->hash(context));
+      dataset.succeed_info_map[old_dag->compact_string()].insert(
+          new_dag->compact_string());
       // foutc << "old_dag->hash() = " << std::hex << old_dag->hash(context)
       //           << std::endl;
       // foutc << old_dag->to_string() << std::endl;
@@ -467,13 +465,6 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
                   bool ret = dag->add_gate(qubit_indices, parameter_indices,
                                            gate, nullptr);
                   assert(ret);
-                  // if(!old_dag->same_seq(*old_dag, *new_dag)){
-                  //   std::cout << "succeed_info_map wrong!" << std::endl;
-                  //   std::cout << "old_dag->hash() = " << std::hex <<
-                  //   old_dag->hash(context)<< std::endl; std::cout <<
-                  //   "new_dag->hash() = " << new_dag->hash(context)<< std::oct
-                  //   <<std::endl;
-                  // }
                   try_to_add_to_result(dag, old_dag);
                   ret = dag->remove_last_gate();
                   assert(ret);
