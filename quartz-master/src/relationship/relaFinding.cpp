@@ -130,25 +130,46 @@ bool DataExtracter::load_relationships(std::string file_name) {
     std::cerr << "Relationships fails to open " << file_name << std::endl;
     return false;
   }
-  CircuitSeqHashType fatherHash, tmpChildHash;
-  std::vector<CircuitSeqHashType> childrenHash;
+  std::unordered_set<std::string> children;
   char tmp_char;
-  while (tmp_char != ']') {
-    childrenHash.clear();
-    fin.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
-    fin >> std::hex >> fatherHash;
-    fin >> tmp_char;
-    while (tmp_char != ']') {
-      fin.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
-      fin >> std::hex >> tmpChildHash;
-      childrenHash.push_back(tmpChildHash);
-      fin.get(tmp_char);
-      fin.get(tmp_char);
+  int flag = 0;
+  while (fin >> tmp_char) {
+    std::string father;
+    if (tmp_char == '[')
+      flag--;
+    else if (tmp_char == ']')
+      flag++;
+    father.push_back(tmp_char);
+    while (flag != 0) {
+      fin >> tmp_char;
+      if (tmp_char == '[')
+        flag--;
+      else if (tmp_char == ']')
+        flag++;
+      father.push_back(tmp_char);
     }
-    add_relationship(fatherHash, childrenHash);
-    fin.get(tmp_char);
-    fin.get(tmp_char);
-    // std::cout << tmp_char << std::endl;
+    children.clear();
+    fin.ignore(std::numeric_limits<std::streamsize>::max(), '{');
+    fin >> tmp_char;
+    while (tmp_char != '}') {
+      std::string tmpChild;
+      if (tmp_char == '[')
+        flag--;
+      else if (tmp_char == ']')
+        flag++;
+      tmpChild.push_back(tmp_char);
+      while (flag != 0) {
+        fin >> tmp_char;
+        if (tmp_char == '[')
+          flag--;
+        else if (tmp_char == ']')
+          flag++;
+        tmpChild.push_back(tmp_char);
+      }
+      children.insert(tmpChild);
+      fin >> tmp_char;
+    }
+    relationships[father] = children;
   }
   fin.close();
   return true;
@@ -193,11 +214,11 @@ void DataExtracter::print_loaded_relationships(std::string file_name) {
   std::ofstream fout;
   fout.open(file_name, std::ifstream::out);
   for (auto &rela : relationships) {
-    fout << "[[\"" << std::hex << rela.first << "\"], [";
+    fout << rela.first << ", {";
     for (auto &succ : rela.second) {
-      fout << "[\"" << succ << "\"],";
+      fout << succ << ",";
     }
-    fout << "]" << std::endl;
+    fout << "}" << std::endl;
   }
 }
 
@@ -570,9 +591,9 @@ int main() {
   // }
   dataExtracter.load_relationships("relationships.json");
   dataExtracter.print_loaded_relationships("rela_out.json");
-  dataExtracter.clean_wrongly_linked_rela();
-  dataExtracter.print_loaded_relationships("rela_after_clean.json");
+  // dataExtracter.clean_wrongly_linked_rela();
+  // dataExtracter.print_loaded_relationships("rela_after_clean.json");
   dataExtracter.print_front_rep("front_rep.json");
-  dataExtracter.print_QCIR_patterns("pattern_in_quartz.json");
-  dataExtracter.print_rela_in_eccs("rela_in_eccs.json");
+  // dataExtracter.print_QCIR_patterns("pattern_in_quartz.json");
+  // dataExtracter.print_rela_in_eccs("rela_in_eccs.json");
 }
