@@ -13,7 +13,6 @@ namespace quartz {
 class Dataset {
 public:
   bool save_json(Context *ctx, const std::string &file_name) const;
-  bool save_succeed_info(Context *ctx, const std::string &file_name) const;
 
   // Return the number of DAGs removed.
   int remove_singletons(Context *ctx);
@@ -44,6 +43,8 @@ public:
   std::unordered_map<CircuitSeqHashType,
                      std::vector<std::unique_ptr<CircuitSeq>>>
       dataset;
-  std::map<std::string, std::set<std::string>> succeed_info_map;
+  std::map<int, std::string> label_to_dag;
+  std::map<std::string, int> dag_to_label;
+  std::map<int, std::set<int>> succeed_info_map;
 };
 } // namespace quartz

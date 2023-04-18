@@ -68,38 +68,6 @@ bool Dataset::save_json(Context *ctx, const std::string &file_name) const {
   return true;
 }
 
-bool Dataset::save_succeed_info(Context *ctx, const std::string &file_name) const
-{
-  std::ofstream fout;
-  fout.open(file_name, std::ofstream::out);
-  if (!fout.is_open()) {
-    return false;
-  }
-  fout << "{" << std::endl;
-  for(auto &i : dataset)
-  {
-    if (i.second.empty()) {
-      // Empty CircuitSeq set
-      continue;
-    }
-    fout << "[[\"" << std::hex << i.first << "\"],[";
-    bool first = true;
-    for(auto &j : i.second[0]->get_succeed_hash_values())
-    {
-      if(!first){
-        fout<<",";
-      }
-      else {
-      first = false;
-      }
-      fout << "\"" << std::hex << j << "\"";
-    }
-    fout << "]],"<< std::endl;
-  }
-  fout << "}"<<std::endl;
-  return true;
-}
-
 int Dataset::remove_singletons(Context *ctx) {
   int num_removed = 0;
   for (auto it = dataset.begin(); it != dataset.end();) {

@@ -852,7 +852,6 @@ std::string CircuitSeq::to_string() const {
 
 std::string CircuitSeq::compact_string() const{
   std::string result;
-  result += "[";
   bool is_first = true;
   for(auto &gate : gates){
     if(is_first)
@@ -861,7 +860,7 @@ std::string CircuitSeq::compact_string() const{
       result += ",";
     result +="[\"";
     result+= gate_type_name(gate->gate->tp);
-    result += "\", [";
+    result += "\",[";
     bool is_first_sec = true;
     for(auto &para : gate->input_wires){
       if(is_first_sec)
@@ -878,7 +877,6 @@ std::string CircuitSeq::compact_string() const{
     }
     result += "]]";
   }
-  result += "]";
   return result;
 }
 

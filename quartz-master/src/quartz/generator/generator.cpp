@@ -121,18 +121,25 @@ void Generator::generate(
   fout.open(file_name, std::ofstream::out);
   // fout << dataset->succeed_info_map.begin()->first << std::endl;
   for (auto &i : dataset->succeed_info_map) {
-    fout << i.first << ", {";
+    fout << i.first << " ";
     bool first = true;
     for (auto &j : i.second) {
       if (!first)
         fout << ",";
       else
         first = false;
-      fout << j ;
+      fout << j;
     }
-    fout << "}"<< std::endl;
+    fout << std::endl;
   }
   fout.close();
+  std::ofstream fout2;
+  file_name = "label_to_dag.json";
+  fout2.open(file_name, std::ofstream::out);
+  for (auto &i : dataset->label_to_dag) {
+    fout2 << i.first << " " << i.second << std::endl;
+  }
+  fout2.close();
 }
 
 void Generator::dfs(int gate_idx, int max_num_gates,
@@ -367,23 +374,28 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
   // std::ofstream foutc;
   // foutc.open("check.txt");
   // int wrong_cnt = 0;
+  static int label = 0;
   auto try_to_add_to_result = [&](CircuitSeq *new_dag, CircuitSeq *old_dag) {
     // A new CircuitSeq with |current_max_num_gates| + 1 gates.
     if (invoke_python_verifier) {
       // We will verify the equivalence later in Python.
       assert(equiv_set);
-      if (!verifier_.redundant(context, equiv_set, new_dag)) {
+      // if (!verifier_.redundant(context, equiv_set, new_dag)) {
         auto new_new_dag = std::make_unique<CircuitSeq>(*new_dag);
         auto new_new_dag_ptr = new_new_dag.get();
-        dataset.succeed_info_map[old_dag->compact_string()].insert(
-            new_new_dag->compact_string());
+        dataset.dag_to_label[new_new_dag->compact_string()] = label;
+        dataset.label_to_dag[label] = new_new_dag->compact_string();
+        dataset
+            .succeed_info_map[dataset.dag_to_label[old_dag->compact_string()]]
+            .insert(label);
+        label++;
         dataset.insert(context, std::move(new_new_dag));
         if (new_representatives) {
           // Warning: this is not the new representatives -- only
           // the new DAGs.
           new_representatives->push_back(new_new_dag_ptr);
         }
-      }
+      // }
     }
     /*invoke_python_verifier = false*/
     else { // If we will not verify the equivalence later, we should update
@@ -394,8 +406,11 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       // XXX: Try to insert to a set with hash value differing no more than 1.
       bool ret = dataset.insert_to_nearby_set_if_exists(
           context, std::make_unique<CircuitSeq>(*new_dag));
-      dataset.succeed_info_map[old_dag->compact_string()].insert(
-          new_dag->compact_string());
+      dataset.dag_to_label[new_dag->compact_string()] = label;
+      dataset.label_to_dag[label] = new_dag->compact_string();
+      dataset.succeed_info_map[dataset.dag_to_label[old_dag->compact_string()]]
+          .insert(label);
+      label++;
       // foutc << "old_dag->hash() = " << std::hex << old_dag->hash(context)
       //           << std::endl;
       // foutc << old_dag->to_string() << std::endl;
