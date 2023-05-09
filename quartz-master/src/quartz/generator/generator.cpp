@@ -32,6 +32,8 @@ void Generator::generate(
     EquivalenceSet *equiv_set, bool unique_parameters, bool verbose,
     decltype(std::chrono::steady_clock::now() -
              std::chrono::steady_clock::now()) *record_verification_time) {
+// if invoke_python_verifier == true, we have input equiv_set
+// else, we don't maintain equiv_set
   auto empty_dag =
       std::make_unique<CircuitSeq>(num_qubits, num_input_parameters);
   // Generate all possible parameter gates at the beginning.
@@ -380,7 +382,7 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
     if (invoke_python_verifier) {
       // We will verify the equivalence later in Python.
       assert(equiv_set);
-      // if (!verifier_.redundant(context, equiv_set, new_dag)) {
+      if (!verifier_.redundant(context, equiv_set, new_dag)) {
         auto new_new_dag = std::make_unique<CircuitSeq>(*new_dag);
         auto new_new_dag_ptr = new_new_dag.get();
         dataset.dag_to_label[new_new_dag->compact_string()] = label;
@@ -395,7 +397,7 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
           // the new DAGs.
           new_representatives->push_back(new_new_dag_ptr);
         }
-      // }
+      }
     }
     /*invoke_python_verifier = false*/
     else { // If we will not verify the equivalence later, we should update
@@ -419,16 +421,16 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
       // foutc << new_dag->to_string() << std::endl;
       // wrong_cnt++;
 
+      auto rep = std::make_unique<CircuitSeq>(*new_dag);
+      auto rep_ptr = rep.get();
       if (ret) {
         // The CircuitSeq's hash value is new to the dataset.
         // Note: this is the second instance of CircuitSeq we create in
         // this function.
-        auto rep = std::make_unique<CircuitSeq>(*new_dag);
-        auto rep_ptr = rep.get();
         context->set_representative(std::move(rep));
-        if (new_representatives) {
-          new_representatives->push_back(rep_ptr);
-        }
+      }
+      if (new_representatives) {
+        new_representatives->push_back(rep_ptr);
       }
     }
   };

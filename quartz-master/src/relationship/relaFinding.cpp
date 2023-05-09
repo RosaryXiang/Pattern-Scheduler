@@ -1,6 +1,7 @@
 #include "relafinding.h"
 #include "quartz/circuitseq/circuitseq.h"
 #include "quartz/utils/utils.h"
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -101,20 +102,30 @@ void DataExtracter::print_dag_to_hash(std::string file_name) {
 
 bool DataExtracter::load_dag_to_label(std::string file_name) {
   std::ifstream fin;
+  std::ofstream fout;
+  fout.open("loaded_dag_to_label.json", std::ofstream::out);
   std::stringstream ss;
-  std::string line, dag;
+  std::string line, dag, str;
   int label;
   fin.open(file_name, std::ifstream::in);
   if (!fin.is_open()) {
     std::cerr << "dag_to_label fails to open " << file_name << std::endl;
     return false;
   }
+  char c;
   while (getline(fin, line)) {
     ss.clear();
     ss << line;
-    ss >> label >> dag;
+    ss >> label;
+    dag.clear();
+    while (ss >> str) {
+      dag += str;
+      dag += " ";
+    }
+    dag.erase(dag.size() - 1);
     dag_to_label[dag] = label;
     label_to_dag[label] = dag;
+    fout << label << " " << dag << std::endl;
   }
   fin.close();
   return true;
@@ -252,10 +263,10 @@ bool DataExtracter::print_QCIR_patterns(std::string file_name) {
 
     /* 根据rep的hash_value找到rep的的dag并生成dst*/
     dst.clear();
-    DAG rep(patt.second.second);
+    DAG rep(label_to_dag[patt.second]);
     rep.extract_info();
     dst += "\t\t\t\t\"dst\": {\n\t\t\t\t\t\"cost\": ";
-    dst += std::to_string(rep.gate_num);
+    dst += std::to_string(rep.cost);
     if (rep.gate_info.size() == 0)
       dst += ",\n\t\t\t\t\t\"circuit\": {}\n\t\t\t\t}";
     else {
@@ -297,12 +308,130 @@ bool DataExtracter::print_QCIR_patterns(std::string file_name) {
       dst += "\n\t\t\t\t\t}\n\t\t\t\t}";
     }
     fout << "\t\t\"p" << patt.first << "\": [" << std::endl;
-    DAG dag(patt.second.first);
+    DAG dag(label_to_dag[patt.first]);
     dag.extract_info();
     fout << "\t\t\t{" << std::endl;
     fout << "\t\t\t\t\"qubits\": " << dag.qubit_num << "," << std::endl;
     fout << "\t\t\t\t\"src\": {" << std::endl;
-    fout << "\t\t\t\t\t\"cost\": " << dag.gate_num << "," << std::endl;
+    fout << "\t\t\t\t\t\"cost\": " << dag.cost << "," << std::endl;
+    fout << "\t\t\t\t\t\"circuit\": {" << std::endl;
+    is_first[2] = true;
+    for (auto &gate : dag.gate_info) {
+      if (!is_first[2])
+        fout << "," << std::endl;
+      else
+        is_first[2] = false;
+      auto find_gate_type = QCIR_gate(is_single, gate.first, qcir_name);
+      if (find_gate_type) {
+        fout << "\t\t\t\t\t\t\"" << qcir_name << "\": [";
+        ss.clear();
+        ss << gate.second[0];
+        if (is_single) {
+          ss >> c >> index;
+          fout << index << "]";
+        } else {
+          /* 此处因为quartz不支持数值作为操作数，只支持量子比特作为操作数，故不考虑操作数为P的情况
+           */
+          ss >> c >> index;
+          fout << index << ", ";
+          ss.clear();
+          ss << gate.second[1];
+          ss >> c >> index;
+          fout << index << "]";
+        }
+      } else {
+        std::cout << "transfer to qcir gate failed!" << std::endl;
+        return false;
+      }
+    }
+    fout << std::endl << "\t\t\t\t\t}" << std::endl;
+    fout << "\t\t\t\t}," << std::endl;
+    fout << dst << std::endl;
+    fout << "\t\t\t}" << std::endl;
+    fout << "\t\t]";
+  }
+  fout << std::endl << "\t}" << std::endl;
+  fout << "}" << std::endl;
+  return true;
+}
+
+bool DataExtracter::print_QCIR_patterns_with_cost_limit(std::string file_name) {
+  std::ofstream fout;
+  fout.open(file_name, std::ofstream::out);
+  if (!fout.is_open()) {
+    std::cerr << "QCIR patterns' repository fails to open " << file_name
+              << std::endl;
+    return false;
+  }
+  std::stringstream ss;
+  std::string dst;
+  char c;
+  int index;
+  std::vector<bool> is_first(3);
+  bool is_single = true;
+  std::string qcir_name;
+  is_first[0] = true;
+  fout << "{" << std::endl;
+  fout << "\t\"pattern\": {" << std::endl;
+  for (auto &patt : patterns_with_cost_limit) {
+    if (!is_first[0])
+      fout << "," << std::endl;
+    else
+      is_first[0] = false;
+
+    /* 根据rep的hash_value找到rep的的dag并生成dst*/
+    dst.clear();
+    DAG rep(label_to_dag[patt.second]);
+    rep.extract_info();
+    dst += "\t\t\t\t\"dst\": {\n\t\t\t\t\t\"cost\": ";
+    dst += std::to_string(rep.cost);
+    if (rep.gate_info.size() == 0)
+      dst += ",\n\t\t\t\t\t\"circuit\": {}\n\t\t\t\t}";
+    else {
+      dst += ",\n\t\t\t\t\t\"circuit\": {\n";
+      bool rep_first = true;
+      for (auto &gate : rep.gate_info) {
+        if (!rep_first)
+          dst += ",\n";
+        else
+          rep_first = false;
+        auto find_gate_type = QCIR_gate(is_single, gate.first, qcir_name);
+        if (find_gate_type) {
+          dst += "\t\t\t\t\t\t\"";
+          dst += qcir_name;
+          dst += "\": [";
+          ss.clear();
+          ss << gate.second[0];
+          if (is_single) {
+            ss >> c >> index;
+            dst += std::to_string(index);
+            dst += "]";
+          } else {
+            /* 此处因为quartz不支持数值作为操作数，只支持量子比特作为操作数，故不考虑操作数为P的情况
+             */
+            ss >> c >> index;
+            dst += std::to_string(index);
+            dst += ", ";
+            ss.clear();
+            ss << gate.second[1];
+            ss >> c >> index;
+            dst += std::to_string(index);
+            dst += "]";
+          }
+        } else {
+          std::cout << "transfer to qcir gate failed!" << std::endl;
+          return false;
+        }
+      }
+      dst += "\n\t\t\t\t\t}\n\t\t\t\t}";
+    }
+    fout << "\t\t\"p" << patt.first << "\": [" << std::endl;
+    DAG dag(label_to_dag[patt.first]);
+    dag.extract_info();
+    fout << "\t\t\t{" << std::endl;
+    fout << "\t\t\t\t\"qubits\": " << dag.qubit_num << "," << std::endl;
+    fout << "\t\t\t\t\"src\": {" << std::endl;
+    fout << "\t\t\t\t\t\"cost\": " << dag.cost << "," << std::endl;
     fout << "\t\t\t\t\t\"circuit\": {" << std::endl;
     is_first[2] = true;
     for (auto &gate : dag.gate_info) {
@@ -391,6 +520,7 @@ void DAG::extract_info() {
     // std::cout << "gate_type = " << gate_type << std::endl;
     gate_num++;
     if (gate_type == "cx") {
+      cost += 2;
       ss.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
       ss >> tmp_char;
       while (tmp_char != '\"') {
@@ -409,6 +539,7 @@ void DAG::extract_info() {
       // std::cout << "op2 = " << op2 << std::endl;
       gate_info.push_back({gate_type, {op1, op2}});
     } else {
+      cost += 1;
       ss.ignore(std::numeric_limits<std::streamsize>::max(), '\"');
       ss >> tmp_char;
       while (tmp_char != '\"') {
@@ -439,116 +570,170 @@ void DAG::extract_info() {
   valid = true;
 }
 
-std::string DAG::compact_info() {
-  if (!valid)
-    extract_info();
-  std::string result = "";
-  bool first = true;
-  for (auto &gate : gate_info) {
-    if (first) {
-      first = false;
-      result += "[";
-    } else
-      result += ",[";
-    result += "\"";
-    result += gate.first;
-    result += "\",[\"";
-    bool first_sec = true;
-    for (auto &p : gate.second) {
-      if (first_sec)
-        first_sec = false;
-      else
-        result += ",\"";
-      result += p;
-      result += "\"";
-    }
-    result += "]]";
-  }
-  // std::cout << content()<< "       "<< result << std::endl;
-  return result;
-}
-
 void DataExtracter::generate_QCIR_patterns() {
   std::string rep, mem;
+  // int cnt = 0;
+  std::cout << "eccs.size() = " << eccs.size() << std::endl;
   for (auto &ecc : eccs) {
     rep = representatives[ecc.first];
     for (auto &sec : ecc.second.get_dags()) {
       mem = sec.content();
       if (mem == rep)
         continue;
-      DAG rep_dag(rep); // NOT compact info
-      DAG mem_dag(mem); // NOT compact info
-      int mem_label = dag_to_label[mem_dag.compact_info()];
+      DAG rep_dag(rep);
+      DAG mem_dag(mem);
+      int mem_label = dag_to_label[mem];
+      int rep_label = dag_to_label[rep];
+      // std::cout << mem <<mem_label << "," << std::endl;
       if (patterns.find(mem_label) != patterns.end()) {
         rep_dag.extract_info();
-        DAG old_rep_dag(patterns[mem_label].second);
+        DAG old_rep_dag(label_to_dag[patterns[mem_label]]);
         old_rep_dag.extract_info();
-        if (old_rep_dag.gate_num > rep_dag.gate_num)
-          patterns[mem_label].second = rep;
+        if (old_rep_dag.cost > rep_dag.cost)
+          patterns[mem_label] = rep_label;
       } else {
-        patterns[mem_label].first = mem;
-        patterns[mem_label].second = rep;
+        // cnt++;
+        patterns[mem_label] = rep_label;
       }
     }
+    // std::cout << std::endl;
   }
-  std::fstream fout;
+  /*std::fstream fout;
   fout.open("pattern_out.json", std::ofstream::out);
   for (auto &i : patterns) {
     fout << i.first << " " << i.second.first << std::endl;
     fout << i.second.second << std::endl;
   }
-  std::cout << "patterns = ";
-  int cnt = 0;
-  for (auto &i : patterns) {
-    if (cnt % 10 == 0)
-      std::cout << std::endl;
-    std::cout << i.first;
-    cnt++;
-  }
-  std::cout << std::endl;
+  std::cout << "cnt = " << cnt << std::endl;*/
+  for (auto &p : patterns) {
+    DAG rep = DAG(label_to_dag[p.second]);
+    rep.extract_info();
+    DAG dag = DAG(label_to_dag[p.first]);
+    dag.extract_info();
+    if (rep.cost < dag.cost) {
+      // for (auto &parent : reverse_rela[p.first]) {
+      //   DAG rep_p = DAG(patterns[parent].second);
+      //   rep_p.extract_info();
+      //   DAG dag_p = DAG(patterns[parent].first);
+      //   dag_p.extract_info();
+      //   if (dag.cost - rep.cost > dag_p.cost - rep_p.cost) {
+      patterns_with_cost_limit.insert(p);
+      //   break;
+      // }
+    }
+  } 
+  // }
 }
 
 void DataExtracter::print_front_label(std::string file_name) {
   std::fstream fout;
   fout.open(file_name, std::fstream::out);
-  std::unordered_set<int> front_label, other_set;
-  int cnt = 0;
-  for (auto &p : patterns) {
-    cnt++;
-    if (cnt % 10 == 0)
-      fout << std::endl;
+  std::unordered_set<int> pattern_set, other_set;
+  for (auto &p : patterns_with_cost_limit) {
+    pattern_set.insert(p.first);
     other_set.insert(p.first);
-    fout << p.first << ",";
   }
-  fout << std::endl;
+  std::cout << "num of patterns_with_cost_limit = "
+            << patterns_with_cost_limit.size() << std::endl;
+  // erase all patterns generated from other patterns
   for (auto &i : relationships) {
-      if (other_set.find(i.first) != other_set.end()){
-        for(auto &j : i.second){
-          if (other_set.find(j) != other_set.end())
-            fout << i.first << "  " << j << std::endl;
-        }
+    if (pattern_set.find(i.first) != pattern_set.end()) {
+      for (auto &j : i.second) {
+        other_set.erase(j);
       }
     }
-    fout << std::endl;
+  }
+  // only patterns can be printed out
+  for (auto &i : other_set) {
+    if (pattern_set.find(i) != pattern_set.end())
+      fout << i << std::endl;
+  }
   fout.close();
+}
+
+//"is_pattern == true" means upper_ dag is a pattern
+void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
+                         const std::unordered_set<int> &lower_dags) {
+  static int dag_cnt = 0;
+  dag_cnt++;
+  if (dag_cnt % 100 == 0)
+    std::cout << dag_cnt << std::endl;
+  // std::fstream fout;
+  // fout.open("log.txt", std::ofstream::app);
+  // fout << is_pattern << "  " <<upper_dag << std::endl;
+  if (is_pattern) {
+    for (auto &i : lower_dags) {
+      if (patterns_with_cost_limit.find(i) != patterns_with_cost_limit.end()) {
+        pattern_relationships[upper_dag].insert(i);
+        if (relationships.find(i) != relationships.end())
+          link(true, i, relationships[i]);
+      } else {
+        if (relationships.find(i) != relationships.end())
+          link(true, upper_dag, relationships[i]);
+      }
+    }
+  } else {
+    if (patterns_with_cost_limit.find(upper_dag) !=
+        patterns_with_cost_limit.end()) {
+      if (relationships.find(upper_dag) != relationships.end())
+        link(true, upper_dag, relationships[upper_dag]);
+    } else {
+      for (auto &i : relationships[upper_dag]) {
+        if (relationships.find(i) != relationships.end())
+          link(false, i, relationships[i]);
+      }
+    }
+  }
+}
+
+void DataExtracter::generate_relationships_between_patterns(
+    std::string file_name) {
+  std::fstream fout, fout2;
+  fout.open("pattern_relationships_new.json", std::ofstream::out);
+
+  link(false, 0, relationships[0]);
+
+  std::unordered_set<int> cnt;
+  for (auto &i : pattern_relationships) {
+    cnt.insert(i.first);
+    if (i.second.size() == 0)
+      continue;
+    bool first = true;
+    fout << i.first << " ";
+    for (auto &j : i.second) {
+      cnt.insert(j);
+      if (first)
+        first = false;
+      else
+        fout << ",";
+      fout << j;
+    }
+    fout << std::endl;
+  }
+  fout.close();
+  std::cout << "the number of patterns in pattern_relationships is "
+            << cnt.size() << std::endl;
 }
 
 int main() {
   DataExtracter dataExtracter;
-  dataExtracter.load_representatives("representatives.json");
-  dataExtracter.load_relationships("relationships.json");
+  dataExtracter.load_representatives(
+      "/home/jun/桌面/lab/patt "
+      "schd/quartz-master/3_2_3_representative_set.json");
+  dataExtracter.load_relationships(
+      "/home/jun/桌面/lab/patt schd/quartz-master/succeed_info_map.json");
+  // dataExtracter.generate_reverse_rela();
   dataExtracter.print_dag_to_hash("dag_to_hash.json");
-  dataExtracter.load_dag_to_label("label_to_dag.json");
-  dataExtracter.load_eccs("eccs.json", "loaded_eccs.json");
-  /*for (auto &eccs : dataExtracter.eccs) {
-    for (auto &ecc : eccs.second.get_dags()) {
-      ecc.extract_info();
-      // it's ofstream::app
-      // ecc.print_info("gate_info.json");
-      std::cout << ecc.compact_info() << std::endl;
-    }
-  }*/
+  dataExtracter.load_dag_to_label(
+      "/home/jun/桌面/lab/patt schd/quartz-master/label_to_dag.json");
+  dataExtracter.load_eccs(
+      "/home/jun/桌面/lab/patt schd/quartz-master/3_2_3_complete_ECC_set.json",
+      "loaded_eccs.json");
   dataExtracter.generate_QCIR_patterns();
   dataExtracter.print_front_label("front_label.json");
   dataExtracter.print_QCIR_patterns("quartz_pattern.json");
+  dataExtracter.print_QCIR_patterns_with_cost_limit(
+      "patterns_with_cost_limit.json");
+  dataExtracter.generate_relationships_between_patterns(
+      "pattern_relationships.json");
 }

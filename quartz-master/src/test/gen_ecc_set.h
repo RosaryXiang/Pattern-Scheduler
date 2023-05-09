@@ -19,9 +19,9 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
   Context ctx(supported_gates, num_qubits, num_input_parameters);
   Generator gen(&ctx);
 
-  EquivalenceSet equiv_set;
+  EquivalenceSet equiv_set; //after generating (and removing singletons) get ECCs from dataset1
 
-  Dataset dataset1;
+  Dataset dataset1; //while generating maintain dataset1 
 
   gen.generate(num_qubits, num_input_parameters, 1, max_num_param_gates,
                &dataset1,                           /*invoke_python_verifier=*/
@@ -53,6 +53,7 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
   /*generate_representative_set is true*/
   if (!generate_representative_set) {
     // For better performance
+    //Remove the ECCs that has only one DAG
     dataset1.remove_singletons(&ctx);
   }
   if (invoke_python_verifier) {
@@ -78,7 +79,7 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
   }
   if (generate_representative_set) {
     auto start2 = std::chrono::steady_clock::now();
-    auto rep_set = equiv_set.get_representative_set();
+    auto rep_set = equiv_set.get_representative_set(); //dags_[0].get();
     rep_set->sort();
     rep_set->save_json(file_prefix + "representative_set.json");
     auto end2 = std::chrono::steady_clock::now();

@@ -52,6 +52,7 @@ bool Verifier::redundant(Context *ctx, const EquivalenceSet *eqs,
     return true;
   }
   // We have already known that DropLast(circuitseq) is a representative.
+  /*After changing the codes of bfs, the comment line above, is incorect.*/
   // Check if canonicalize(DropFirst(circuitseq)) is a representative.
   auto dropfirst = std::make_unique<CircuitSeq>(*dag);
   dropfirst->remove_first_quantum_gate();
