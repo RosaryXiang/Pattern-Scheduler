@@ -598,13 +598,13 @@ void DataExtracter::generate_QCIR_patterns() {
     }
     // std::cout << std::endl;
   }
-  /*std::fstream fout;
+  std::cout << "num of pattern ***** " << std::oct << patterns.size() << std::endl; 
+  std::fstream fout;
   fout.open("pattern_out.json", std::ofstream::out);
   for (auto &i : patterns) {
-    fout << i.first << " " << i.second.first << std::endl;
-    fout << i.second.second << std::endl;
+    fout << i.first << " " << i.second << std::endl;
   }
-  std::cout << "cnt = " << cnt << std::endl;*/
+  
   for (auto &p : patterns) {
     DAG rep = DAG(label_to_dag[p.second]);
     rep.extract_info();
@@ -621,30 +621,27 @@ void DataExtracter::generate_QCIR_patterns() {
       //   break;
       // }
     }
-  } 
+  }
   // }
 }
 
 void DataExtracter::print_front_label(std::string file_name) {
   std::fstream fout;
   fout.open(file_name, std::fstream::out);
-  std::unordered_set<int> pattern_set, other_set;
+  std::unordered_set<int> pattern_set;
   for (auto &p : patterns_with_cost_limit) {
     pattern_set.insert(p.first);
-    other_set.insert(p.first);
   }
   std::cout << "num of patterns_with_cost_limit = "
             << patterns_with_cost_limit.size() << std::endl;
   // erase all patterns generated from other patterns
-  for (auto &i : relationships) {
-    if (pattern_set.find(i.first) != pattern_set.end()) {
-      for (auto &j : i.second) {
-        other_set.erase(j);
-      }
+  for (auto &i : pattern_relationships) {
+    for (auto &j : i.second) {
+      pattern_set.erase(j);
     }
   }
   // only patterns can be printed out
-  for (auto &i : other_set) {
+  for (auto &i : pattern_set) {
     if (pattern_set.find(i) != pattern_set.end())
       fout << i << std::endl;
   }
@@ -654,16 +651,13 @@ void DataExtracter::print_front_label(std::string file_name) {
 //"is_pattern == true" means upper_ dag is a pattern
 void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
                          const std::unordered_set<int> &lower_dags) {
-  static int dag_cnt = 0;
-  dag_cnt++;
-  if (dag_cnt % 100 == 0)
-    std::cout << dag_cnt << std::endl;
-  // std::fstream fout;
-  // fout.open("log.txt", std::ofstream::app);
-  // fout << is_pattern << "  " <<upper_dag << std::endl;
+  // static int dag_cnt = 0;
+  // dag_cnt++;
+  // if (dag_cnt % 100 == 0)
+  //   std::cout << dag_cnt << std::endl;
   if (is_pattern) {
     for (auto &i : lower_dags) {
-      if (patterns_with_cost_limit.find(i) != patterns_with_cost_limit.end()) {
+      if (patterns.find(i) != patterns.end()) {
         pattern_relationships[upper_dag].insert(i);
         if (relationships.find(i) != relationships.end())
           link(true, i, relationships[i]);
@@ -673,14 +667,18 @@ void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
       }
     }
   } else {
-    if (patterns_with_cost_limit.find(upper_dag) !=
-        patterns_with_cost_limit.end()) {
+    if (patterns.find(upper_dag) !=
+        patterns.end()) {
       if (relationships.find(upper_dag) != relationships.end())
         link(true, upper_dag, relationships[upper_dag]);
+      else {
+        std::unordered_set<int> tmp_set;
+        tmp_set.clear();
+        pattern_relationships[upper_dag] = tmp_set;
+      }
     } else {
       for (auto &i : relationships[upper_dag]) {
-        if (relationships.find(i) != relationships.end())
-          link(false, i, relationships[i]);
+        link(false, i, relationships[upper_dag]);
       }
     }
   }
@@ -689,7 +687,8 @@ void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
 void DataExtracter::generate_relationships_between_patterns(
     std::string file_name) {
   std::fstream fout, fout2;
-  fout.open("pattern_relationships_new.json", std::ofstream::out);
+  fout.open("pattern_relationships.json", std::ofstream::out);
+  fout2.open("log.txt", std::ofstream::out);
 
   link(false, 0, relationships[0]);
 
@@ -713,6 +712,11 @@ void DataExtracter::generate_relationships_between_patterns(
   fout.close();
   std::cout << "the number of patterns in pattern_relationships is "
             << cnt.size() << std::endl;
+  for(auto &i :patterns){
+    if(cnt.find(i.first)== cnt.end())
+      fout2 << i.first << std::endl;
+  }
+  fout2.close();
 }
 
 int main() {
@@ -723,17 +727,18 @@ int main() {
   dataExtracter.load_relationships(
       "/home/jun/桌面/lab/patt schd/quartz-master/succeed_info_map.json");
   // dataExtracter.generate_reverse_rela();
-  dataExtracter.print_dag_to_hash("dag_to_hash.json");
+  // dataExtracter.print_dag_to_hash("dag_to_hash.json");
   dataExtracter.load_dag_to_label(
       "/home/jun/桌面/lab/patt schd/quartz-master/label_to_dag.json");
   dataExtracter.load_eccs(
       "/home/jun/桌面/lab/patt schd/quartz-master/3_2_3_complete_ECC_set.json",
       "loaded_eccs.json");
   dataExtracter.generate_QCIR_patterns();
-  dataExtracter.print_front_label("front_label.json");
   dataExtracter.print_QCIR_patterns("quartz_pattern.json");
   dataExtracter.print_QCIR_patterns_with_cost_limit(
       "patterns_with_cost_limit.json");
   dataExtracter.generate_relationships_between_patterns(
       "pattern_relationships.json");
+  std::cout << "num of patterns = " << dataExtracter.patterns.size() << std::endl;
+  dataExtracter.print_front_label("front_label.json");
 }
