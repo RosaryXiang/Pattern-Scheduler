@@ -51,7 +51,7 @@ public:
   bool print_QCIR_patterns(std::string);  //rarely used!
   bool print_QCIR_patterns_with_cost_limit(std::string);
   bool QCIR_gate(bool &, std::string &, std::string &);
-  void print_front_label_for_inclusion_patterns(std::string);
+  void print_front_label_for_inclusion_patterns(std::string, int);
   void print_general_front_label(std::string);
   void link(bool&&, const int &, const std::unordered_set<int> &);
   void generate_relationships_between_patterns(std::string);

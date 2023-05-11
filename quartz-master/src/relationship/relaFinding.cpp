@@ -601,7 +601,7 @@ void DataExtracter::generate_patterns() {
     rep.extract_info();
     DAG dag = DAG(label_to_dag[p.first]);
     dag.extract_info();
-    if (rep.cost < dag.cost) {
+    if (rep.cost < dag.cost && rep.gate_num < dag.gate_num) {
       patterns_with_cost_limit.insert(p);
     }
   }
@@ -651,12 +651,12 @@ void DataExtracter::print_general_front_label(std::string file_name){
   fout.close();
 }
 
-void DataExtracter::print_front_label_for_inclusion_patterns(std::string file_name) {
+void DataExtracter::print_front_label_for_inclusion_patterns(std::string file_name, int succeeding_pattern_num_threshold) {
   std::fstream fout;
   fout.open(file_name, std::fstream::out);
   std::unordered_set<int> pattern_set;
   for (auto &r : pattern_relationships_with_cost_limit) {
-    if (r.second.size() == 0)
+    if (r.second.size() > succeeding_pattern_num_threshold)
       continue;
     pattern_set.insert(r.first);
   }
@@ -739,10 +739,10 @@ void DataExtracter::generate_relationships_between_patterns(
 }
 
 int main() {
+  std::string data_file_name = "306";
+  std::string relationship_loc = "/home/jun/桌面/lab/patt schd/quartz-master/src/relationship/";
   DataExtracter dataExtracter;
-  dataExtracter.load_representatives(
-      "/home/jun/桌面/lab/patt "
-      "schd/quartz-master/3_2_3_representative_set.json");
+  dataExtracter.load_representatives("/home/jun/桌面/lab/patt schd/quartz-master/3_2_3_representative_set.json");
   dataExtracter.load_relationships(
       "/home/jun/桌面/lab/patt schd/quartz-master/succeed_info_map.json");
   // dataExtracter.generate_reverse_rela();
@@ -756,8 +756,8 @@ int main() {
   dataExtracter.classify_patterns_by_gate_num();
   // dataExtracter.print_QCIR_patterns("quartz_pattern.json");
   dataExtracter.print_QCIR_patterns_with_cost_limit(
-      "./307/patterns_with_cost_limit.json");
-  dataExtracter.generate_relationships_between_patterns("./307/pattern_relationships_with_cost_limit.json");
-  dataExtracter.print_front_label_for_inclusion_patterns("./307/front_label.json");
-  dataExtracter.print_general_front_label("./307/general_front_labels.json");
+      relationship_loc +data_file_name + "/patterns_with_cost_limit.json");
+  dataExtracter.generate_relationships_between_patterns(relationship_loc +data_file_name + "/pattern_relationships_with_cost_limit.json");
+  dataExtracter.print_front_label_for_inclusion_patterns(relationship_loc +data_file_name + "/front_label.json", 3);
+  dataExtracter.print_general_front_label(relationship_loc +data_file_name + "/general_front_labels.json");
 }
