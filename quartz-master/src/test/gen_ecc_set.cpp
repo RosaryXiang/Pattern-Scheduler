@@ -36,6 +36,6 @@ int main() {
   // }
   gen_ecc_set({GateType::x, GateType::y, GateType::z, GateType::h,
                GateType::cx, GateType::rz},
-              "3_2_3_", true, true, 3, 0, 5);
+              "3_2_3_", true, true, 3, 0, 7);
   return 0;
 }

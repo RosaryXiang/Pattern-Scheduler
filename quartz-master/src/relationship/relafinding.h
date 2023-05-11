@@ -46,25 +46,30 @@ public:
   void print_dag_to_hash(std::string);
   bool load_eccs(std::string, std::string);
   bool load_dag_to_label(std::string);
-  void generate_QCIR_patterns();
-  bool print_QCIR_patterns(std::string);
+  void generate_patterns();
+  void classify_patterns_by_gate_num();
+  bool print_QCIR_patterns(std::string);  //rarely used!
   bool print_QCIR_patterns_with_cost_limit(std::string);
   bool QCIR_gate(bool &, std::string &, std::string &);
-  void print_front_label(std::string);
+  void print_front_label_for_inclusion_patterns(std::string);
+  void print_general_front_label(std::string);
   void link(bool&&, const int &, const std::unordered_set<int> &);
   void generate_relationships_between_patterns(std::string);
 
 public:
+  int max_gate_num =0;
   std::unordered_map<CircuitSeqHashType, std::string> representatives; 
   std::unordered_map<int, std::unordered_set<int>> relationships;
-  std::unordered_map<int, std::unordered_set<int>> pattern_relationships;
+  std::unordered_map<int, std::unordered_set<int>> pattern_relationships_with_cost_limit;
   std::unordered_map<std::string, CircuitSeqHashType> dag_to_hash; 
   std::unordered_map<std::string, int> dag_to_label; 
   std::unordered_map<int, std::string> label_to_dag; 
   std::unordered_map<CircuitSeqHashType, ECC> eccs; 
-  std::unordered_map<int, int> patterns;  //norep to rep
+  std::unordered_map<int, int> patterns;  //norep to rep  rarely used!
   std::unordered_map<int, int> patterns_with_cost_limit;  //norep to rep
-
+  std::unordered_map<int, std::unordered_set<int>> patterns_clustered_by_gate_num;
+  std::unordered_set<int> general_front_labels;
+  std::unordered_set<int> front_labels_for_inclusion_patterns;
 public:
   std::unordered_map<std::string, std::string> single_gates = {
       {"x", "X"}, {"y", "Y"}, {"z", "Z"}, {"h", "H"}};

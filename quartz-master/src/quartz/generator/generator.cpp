@@ -122,6 +122,7 @@ void Generator::generate(
   std::ofstream fout;
   fout.open(file_name, std::ofstream::out);
   // fout << dataset->succeed_info_map.begin()->first << std::endl;
+  dataset->succeed_info_map[0].erase(0); 
   for (auto &i : dataset->succeed_info_map) {
     fout << i.first << " ";
     bool first = true;
