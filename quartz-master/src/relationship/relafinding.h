@@ -55,6 +55,7 @@ public:
   void print_general_front_label(std::string);
   void link(bool&&, const int &, const std::unordered_set<int> &);
   void generate_relationships_between_patterns(std::string);
+  void generate_testfiles_of_inclusion_patterns(std::string);
 
 public:
   int max_gate_num =0;

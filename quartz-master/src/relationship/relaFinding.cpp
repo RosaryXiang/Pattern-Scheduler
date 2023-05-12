@@ -656,7 +656,7 @@ void DataExtracter::print_front_label_for_inclusion_patterns(std::string file_na
   fout.open(file_name, std::fstream::out);
   std::unordered_set<int> pattern_set;
   for (auto &r : pattern_relationships_with_cost_limit) {
-    if (r.second.size() > succeeding_pattern_num_threshold)
+    if (r.second.size() < succeeding_pattern_num_threshold)
       continue;
     pattern_set.insert(r.first);
   }
@@ -738,8 +738,50 @@ void DataExtracter::generate_relationships_between_patterns(
   fout.close();
 }
 
+void DataExtracter::generate_testfiles_of_inclusion_patterns(std::string file_name){
+  std::string title = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\n";
+  std::stringstream ss;
+  char tmp_char;
+  int qref;
+  std::vector<int> tmp_vec;
+  for(auto &front_label : front_labels_for_inclusion_patterns){
+    tmp_vec.clear();
+    for(auto &i : pattern_relationships_with_cost_limit[front_label]){
+      tmp_vec.push_back(i);
+    }
+    int target_pattern_label = tmp_vec[tmp_vec.size()-1];
+    std::cout << target_pattern_label << std::endl;
+    std::fstream fout;
+    fout.open(file_name+"/"+std::to_string(target_pattern_label)+".qasm", std::ofstream::out);
+    fout<< title;
+    DAG dag(label_to_dag[target_pattern_label]);
+    dag.extract_info();
+    fout << "qreg q[" << dag.qubit_num << "];" << std::endl;
+    fout << "creg c[" << dag.qubit_num << "];" << std::endl;
+    for(auto &g : dag.gate_info){
+      fout << g.first << " ";
+      bool first = true;
+      for(auto &p : g.second){
+        if(first)
+          first = false;
+        else
+          fout << ",";
+        ss.clear();
+        ss << p;
+        ss >> tmp_char >> qref;
+        if(tmp_char == 'Q')
+          fout << "q[" << qref << "]";
+        else
+          std::cout << "warning ! para type wrong!" << std::endl;
+      }
+      fout << ";" << std::endl;
+    }
+    fout.close();
+  }
+}
+
 int main() {
-  std::string data_file_name = "306";
+  std::string data_file_name = "304";
   std::string relationship_loc = "/home/jun/桌面/lab/patt schd/quartz-master/src/relationship/";
   DataExtracter dataExtracter;
   dataExtracter.load_representatives("/home/jun/桌面/lab/patt schd/quartz-master/3_2_3_representative_set.json");
@@ -760,4 +802,5 @@ int main() {
   dataExtracter.generate_relationships_between_patterns(relationship_loc +data_file_name + "/pattern_relationships_with_cost_limit.json");
   dataExtracter.print_front_label_for_inclusion_patterns(relationship_loc +data_file_name + "/front_label.json", 3);
   dataExtracter.print_general_front_label(relationship_loc +data_file_name + "/general_front_labels.json");
+  dataExtracter.generate_testfiles_of_inclusion_patterns(relationship_loc+ data_file_name + "/testfiles");
 }
