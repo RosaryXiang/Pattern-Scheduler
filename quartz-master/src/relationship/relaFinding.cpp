@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 bool DataExtracter::load_representatives(std::string file_name) {
@@ -74,15 +75,15 @@ bool DataExtracter::load_relationships(std::string file_name) {
   std::string line;
   char c;
   int father, child;
-  std::unordered_set<int> children;
+  std::vector<int> children;
   while (getline(fin, line)) {
     ss.clear();
     children.clear();
     ss << line;
     ss >> father >> child;
-    children.insert(child);
+    children.push_back(child);
     while (ss >> c >> child) {
-      children.insert(child);
+      children.push_back(child);
     }
     relationships[father] = children;
   }
@@ -630,16 +631,16 @@ void DataExtracter::classify_patterns_by_gate_num() {
   max_gate_num = tmp_max_gate_num;
 }
 
-void DataExtracter::print_general_front_label(std::string file_name){
+void DataExtracter::print_general_front_label(std::string file_name) {
   std::unordered_set<int> generated_patterns;
-  for(auto &i : pattern_relationships_with_cost_limit){
-    for(auto &j :i.second){
+  for (auto &i : pattern_relationships_with_cost_limit) {
+    for (auto &j : i.second) {
       generated_patterns.insert(j);
     }
   }
   std::unordered_set<int> general_front_labels;
-  for(auto &i :pattern_relationships_with_cost_limit){
-    if(generated_patterns.find(i.first)== generated_patterns.end())
+  for (auto &i : pattern_relationships_with_cost_limit) {
+    if (generated_patterns.find(i.first) == generated_patterns.end())
       general_front_labels.insert(i.first);
   }
   std::fstream fout;
@@ -651,7 +652,8 @@ void DataExtracter::print_general_front_label(std::string file_name){
   fout.close();
 }
 
-void DataExtracter::print_front_label_for_inclusion_patterns(std::string file_name, int succeeding_pattern_num_threshold) {
+void DataExtracter::print_front_label_for_inclusion_patterns(
+    std::string file_name, int succeeding_pattern_num_threshold) {
   std::fstream fout;
   fout.open(file_name, std::fstream::out);
   std::unordered_set<int> pattern_set;
@@ -676,7 +678,7 @@ void DataExtracter::print_front_label_for_inclusion_patterns(std::string file_na
 
 //"is_pattern == true" means upper_ dag is a pattern
 void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
-                         const std::unordered_set<int> &lower_dags) {
+                         const std::vector<int> &lower_dags) {
   std::fstream fout;
   // fout.open("debug_link.txt", std::ofstream::app);
   // fout << is_pattern << " " << upper_dag << " ";
@@ -684,12 +686,12 @@ void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
   //   fout << i << ",";
   // }
   // fout << std::endl;
-  std::unordered_set<int> empty_set;
-  empty_set.clear();
+  std::vector<int> empty_vec;
+  empty_vec.clear();
   if (is_pattern) {
     for (auto &i : lower_dags) {
       if (patterns_with_cost_limit.find(i) != patterns_with_cost_limit.end()) {
-        pattern_relationships_with_cost_limit[upper_dag].insert(i);
+        pattern_relationships_with_cost_limit[upper_dag].push_back(i);
         if (relationships.find(i) != relationships.end())
           link(true, i, relationships[i]);
       } else {
@@ -701,10 +703,12 @@ void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
     if (patterns_with_cost_limit.find(upper_dag) !=
         patterns_with_cost_limit.end()) {
       if (relationships.find(upper_dag) != relationships.end()) {
-        pattern_relationships_with_cost_limit[upper_dag] = empty_set;
+        sort(empty_vec.begin(), empty_vec.end());
+        pattern_relationships_with_cost_limit[upper_dag] = empty_vec;
         link(true, upper_dag, relationships[upper_dag]);
       } else {
-        pattern_relationships_with_cost_limit[upper_dag] = empty_set;
+        sort(empty_vec.begin(), empty_vec.end());
+        pattern_relationships_with_cost_limit[upper_dag] = empty_vec;
       }
     } else {
       for (auto &i : relationships[upper_dag]) {
@@ -738,69 +742,86 @@ void DataExtracter::generate_relationships_between_patterns(
   fout.close();
 }
 
-void DataExtracter::generate_testfiles_of_inclusion_patterns(std::string file_name){
+void DataExtracter::generate_testfiles_of_inclusion_patterns(
+    std::string file_name) {
   std::string title = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\n";
   std::stringstream ss;
   char tmp_char;
   int qref;
-  std::vector<int> tmp_vec;
-  for(auto &front_label : front_labels_for_inclusion_patterns){
-    tmp_vec.clear();
-    for(auto &i : pattern_relationships_with_cost_limit[front_label]){
-      tmp_vec.push_back(i);
-    }
-    int target_pattern_label = tmp_vec[tmp_vec.size()-1];
-    std::cout << target_pattern_label << std::endl;
-    std::fstream fout;
-    fout.open(file_name+"/"+std::to_string(target_pattern_label)+".qasm", std::ofstream::out);
-    fout<< title;
-    DAG dag(label_to_dag[target_pattern_label]);
-    dag.extract_info();
-    fout << "qreg q[" << dag.qubit_num << "];" << std::endl;
-    fout << "creg c[" << dag.qubit_num << "];" << std::endl;
-    for(auto &g : dag.gate_info){
-      fout << g.first << " ";
-      bool first = true;
-      for(auto &p : g.second){
-        if(first)
-          first = false;
-        else
-          fout << ",";
-        ss.clear();
-        ss << p;
-        ss >> tmp_char >> qref;
-        if(tmp_char == 'Q')
-          fout << "q[" << qref << "]";
-        else
-          std::cout << "warning ! para type wrong!" << std::endl;
+  for (int i = max_gate_num - 1; i > 0; i--) {
+    for (auto &front_label : front_labels_for_inclusion_patterns) {
+      DAG base(label_to_dag[front_label]);
+      base.extract_info();
+      for (auto &succeed_label :
+           pattern_relationships_with_cost_limit[front_label]) {
+        DAG dag(label_to_dag[succeed_label]);
+        dag.extract_info();
+        if (dag.gate_num - base.gate_num != i)
+          continue;
+        std::fstream fout;
+        fout.open(file_name + "/" + std::to_string(i) + "/" +
+                      std::to_string(succeed_label) + ".qasm",
+                  std::ofstream::out);
+        fout << title;
+        fout << "qreg q[" << dag.qubit_num << "];" << std::endl;
+        fout << "creg c[" << dag.qubit_num << "];" << std::endl;
+        for (auto &g : dag.gate_info) {
+          fout << g.first << " ";
+          bool first = true;
+          for (auto &p : g.second) {
+            if (first)
+              first = false;
+            else
+              fout << ",";
+            ss.clear();
+            ss << p;
+            ss >> tmp_char >> qref;
+            if (tmp_char == 'Q')
+              fout << "q[" << qref << "]";
+            else
+              std::cout << "warning ! para type wrong!" << std::endl;
+          }
+          fout << ";" << std::endl;
+        }
+        fout.close();
       }
-      fout << ";" << std::endl;
     }
-    fout.close();
   }
 }
 
 int main() {
   std::string data_file_name = "304";
-  std::string relationship_loc = "/home/jun/桌面/lab/patt schd/quartz-master/src/relationship/";
+  std::string relationship_loc =
+      "/home/jun/桌面/lab/patt schd/quartz-master/src/relationship/";
   DataExtracter dataExtracter;
-  dataExtracter.load_representatives("/home/jun/桌面/lab/patt schd/quartz-master/3_2_3_representative_set.json");
+  dataExtracter.load_representatives("/home/jun/桌面/lab/patt "
+                                     "schd/quartz-master/data/" +
+                                     data_file_name +
+                                     "/representative_set.json");
   dataExtracter.load_relationships(
-      "/home/jun/桌面/lab/patt schd/quartz-master/succeed_info_map.json");
+      "/home/jun/桌面/lab/patt schd/quartz-master/data/" + data_file_name +
+      "/succeed_info_map.json");
   // dataExtracter.generate_reverse_rela();
   // dataExtracter.print_dag_to_hash("dag_to_hash.json");
   dataExtracter.load_dag_to_label(
-      "/home/jun/桌面/lab/patt schd/quartz-master/label_to_dag.json");
-  dataExtracter.load_eccs(
-      "/home/jun/桌面/lab/patt schd/quartz-master/3_2_3_complete_ECC_set.json",
-      "loaded_eccs.json");
+      "/home/jun/桌面/lab/patt schd/quartz-master/data/" + data_file_name +
+      "/label_to_dag.json");
+  dataExtracter.load_eccs("/home/jun/桌面/lab/patt "
+                          "schd/quartz-master/data/" +
+                              data_file_name + "/complete_ECC_set.json",
+                          "loaded_eccs.json");
   dataExtracter.generate_patterns();
   dataExtracter.classify_patterns_by_gate_num();
   // dataExtracter.print_QCIR_patterns("quartz_pattern.json");
   dataExtracter.print_QCIR_patterns_with_cost_limit(
-      relationship_loc +data_file_name + "/patterns_with_cost_limit.json");
-  dataExtracter.generate_relationships_between_patterns(relationship_loc +data_file_name + "/pattern_relationships_with_cost_limit.json");
-  dataExtracter.print_front_label_for_inclusion_patterns(relationship_loc +data_file_name + "/front_label.json", 3);
-  dataExtracter.print_general_front_label(relationship_loc +data_file_name + "/general_front_labels.json");
-  dataExtracter.generate_testfiles_of_inclusion_patterns(relationship_loc+ data_file_name + "/testfiles");
+      relationship_loc + data_file_name + "/patterns_with_cost_limit.json");
+  dataExtracter.generate_relationships_between_patterns(
+      relationship_loc + data_file_name +
+      "/pattern_relationships_with_cost_limit.json");
+  dataExtracter.print_front_label_for_inclusion_patterns(
+      relationship_loc + data_file_name + "/front_label.json", 3);
+  dataExtracter.print_general_front_label(relationship_loc + data_file_name +
+                                          "/general_front_labels.json");
+  dataExtracter.generate_testfiles_of_inclusion_patterns(
+      relationship_loc + data_file_name + "/testfiles");
 }

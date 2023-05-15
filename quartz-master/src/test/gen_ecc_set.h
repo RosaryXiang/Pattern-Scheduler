@@ -81,7 +81,7 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
     auto start2 = std::chrono::steady_clock::now();
     auto rep_set = equiv_set.get_representative_set(); //dags_[0].get();
     rep_set->sort();
-    rep_set->save_json(file_prefix + "representative_set.json");
+    rep_set->save_json("representative_set.json");
     auto end2 = std::chrono::steady_clock::now();
     std::cout << "Representative set saved in "
               << (double)std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -101,7 +101,7 @@ void gen_ecc_set(const std::vector<GateType> &supported_gates,
   auto start2 = std::chrono::steady_clock::now();
   equiv_set.simplify(&ctx);
   auto end2 = std::chrono::steady_clock::now();
-  equiv_set.save_json(file_prefix + "complete_ECC_set.json");
+  equiv_set.save_json("complete_ECC_set.json");
   auto end = std::chrono::steady_clock::now();
 
   std::cout << file_prefix.substr(0, file_prefix.size() - 1)

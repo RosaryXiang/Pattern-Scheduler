@@ -53,15 +53,15 @@ public:
   bool QCIR_gate(bool &, std::string &, std::string &);
   void print_front_label_for_inclusion_patterns(std::string, int);
   void print_general_front_label(std::string);
-  void link(bool&&, const int &, const std::unordered_set<int> &);
+  void link(bool&&, const int &, const std::vector<int> &);
   void generate_relationships_between_patterns(std::string);
   void generate_testfiles_of_inclusion_patterns(std::string);
 
 public:
   int max_gate_num =0;
   std::unordered_map<CircuitSeqHashType, std::string> representatives; 
-  std::unordered_map<int, std::unordered_set<int>> relationships;
-  std::unordered_map<int, std::unordered_set<int>> pattern_relationships_with_cost_limit;
+  std::unordered_map<int, std::vector<int>> relationships;
+  std::unordered_map<int, std::vector<int>> pattern_relationships_with_cost_limit;
   std::unordered_map<std::string, CircuitSeqHashType> dag_to_hash; 
   std::unordered_map<std::string, int> dag_to_label; 
   std::unordered_map<int, std::string> label_to_dag; 
