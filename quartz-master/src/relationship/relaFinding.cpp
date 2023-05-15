@@ -718,15 +718,63 @@ void DataExtracter::link(bool &&is_pattern, const int &upper_dag,
   }
 }
 
-void DataExtracter::generate_relationships_between_patterns(
+void DataExtracter::generate_relationships_between_patterns() {
+  link(false, 0, relationships[0]);
+}
+
+void DataExtracter::generate_inclusion_relationships_between_patterns(
     std::string file_name) {
   std::fstream fout;
   fout.open(file_name, std::ofstream::out);
-
-  link(false, 0, relationships[0]);
-
+  std::vector<int> empty_vec;
   for (auto &i : pattern_relationships_with_cost_limit) {
     if (i.second.size() == 0)
+      continue;
+    DAG father(label_to_dag[i.first]);
+    father.extract_info();
+    DAG father_rep(label_to_dag[patterns[i.first]]);
+    father_rep.extract_info();
+    empty_vec.clear();
+    int max_opt = father.cost - father_rep.cost;
+    int last_gate_num = father.gate_num;
+    for (auto &j : i.second) {
+      DAG child(label_to_dag[j]);
+      child.extract_info();
+      DAG child_rep(label_to_dag[patterns[j]]);
+      child_rep.extract_info();
+      if (child.gate_num == last_gate_num && child.cost - child_rep.cost >= max_opt) {
+        empty_vec.push_back(j);
+      }
+      else if(child.gate_num > last_gate_num && child.cost - child_rep.cost > max_opt){
+        last_gate_num = child.gate_num;
+        max_opt = child.cost - child_rep.cost;
+        empty_vec.push_back(j);
+      }
+    }
+    if (empty_vec.size() != 0)
+      inclusion_pattern_relationships_with_cost_limit[i.first] = empty_vec;
+  }
+
+  for (auto &i : inclusion_pattern_relationships_with_cost_limit) {
+    bool first = true;
+    fout << i.first << " ";
+    for (auto &j : i.second) {
+      if (first)
+        first = false;
+      else
+        fout << ",";
+      fout << j;
+    }
+    fout << std::endl;
+  }
+  fout.close();
+}
+
+void DataExtracter::print_relationships_between_patterns(std::string file_name){
+  std::fstream fout;
+  fout.open(file_name, std::ofstream::out);
+  for (auto &i : pattern_relationships_with_cost_limit) {
+    if(i.second.size()==0)
       continue;
     bool first = true;
     fout << i.first << " ";
@@ -815,7 +863,8 @@ int main() {
   // dataExtracter.print_QCIR_patterns("quartz_pattern.json");
   dataExtracter.print_QCIR_patterns_with_cost_limit(
       relationship_loc + data_file_name + "/patterns_with_cost_limit.json");
-  dataExtracter.generate_relationships_between_patterns(
+  dataExtracter.generate_relationships_between_patterns();
+  dataExtracter.generate_inclusion_relationships_between_patterns(
       relationship_loc + data_file_name +
       "/pattern_relationships_with_cost_limit.json");
   dataExtracter.print_front_label_for_inclusion_patterns(
@@ -824,4 +873,6 @@ int main() {
                                           "/general_front_labels.json");
   dataExtracter.generate_testfiles_of_inclusion_patterns(
       relationship_loc + data_file_name + "/testfiles");
+  dataExtracter.print_relationships_between_patterns(relationship_loc + data_file_name +
+      "/pattern_relationships_with_cost_limit_old.json");
 }
