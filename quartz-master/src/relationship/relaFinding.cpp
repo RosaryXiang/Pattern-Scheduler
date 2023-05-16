@@ -838,7 +838,7 @@ void DataExtracter::generate_testfiles_of_inclusion_patterns(
 }
 
 int main() {
-  std::string data_file_name = "305";
+  std::string data_file_name = "306";
   std::string relationship_loc =
       "/home/jun/桌面/lab/patt schd/quartz-master/src/relationship/";
   DataExtracter dataExtracter;
