@@ -56,6 +56,7 @@ public:
   void link(bool&&, const int &, const std::vector<int> &);
   void generate_relationships_between_patterns();
   void generate_inclusion_relationships_between_patterns(std::string);
+  void generate_testfile(std::string, int, int);
   void generate_testfiles_of_inclusion_patterns(std::string);
   void print_relationships_between_patterns(std::string);
 public:

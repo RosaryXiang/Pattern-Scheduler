@@ -742,10 +742,11 @@ void DataExtracter::generate_inclusion_relationships_between_patterns(
       child.extract_info();
       DAG child_rep(label_to_dag[patterns[j]]);
       child_rep.extract_info();
-      if (child.gate_num == last_gate_num && child.cost - child_rep.cost >= max_opt) {
+      if (child.gate_num == last_gate_num &&
+          child.cost - child_rep.cost >= max_opt) {
         empty_vec.push_back(j);
-      }
-      else if(child.gate_num > last_gate_num && child.cost - child_rep.cost > max_opt){
+      } else if (child.gate_num > last_gate_num &&
+                 child.cost - child_rep.cost > max_opt) {
         last_gate_num = child.gate_num;
         max_opt = child.cost - child_rep.cost;
         empty_vec.push_back(j);
@@ -770,11 +771,12 @@ void DataExtracter::generate_inclusion_relationships_between_patterns(
   fout.close();
 }
 
-void DataExtracter::print_relationships_between_patterns(std::string file_name){
+void DataExtracter::print_relationships_between_patterns(
+    std::string file_name) {
   std::fstream fout;
   fout.open(file_name, std::ofstream::out);
   for (auto &i : pattern_relationships_with_cost_limit) {
-    if(i.second.size()==0)
+    if (i.second.size() == 0)
       continue;
     bool first = true;
     fout << i.first << " ";
@@ -790,51 +792,58 @@ void DataExtracter::print_relationships_between_patterns(std::string file_name){
   fout.close();
 }
 
-void DataExtracter::generate_testfiles_of_inclusion_patterns(
-    std::string file_name) {
+void DataExtracter::generate_testfile(std::string file_name, int front_label,
+                                      int depth) {
   std::string title = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\n";
   std::stringstream ss;
   char tmp_char;
   int qref;
-  for (int i = max_gate_num - 1; i > 0; i--) {
-    for (auto &front_label : front_labels_for_inclusion_patterns) {
-      DAG base(label_to_dag[front_label]);
-      base.extract_info();
-      for (auto &succeed_label :
-           pattern_relationships_with_cost_limit[front_label]) {
-        DAG dag(label_to_dag[succeed_label]);
-        dag.extract_info();
-        if (dag.gate_num - base.gate_num != i)
-          continue;
-        std::fstream fout;
-        fout.open(file_name + "/" + std::to_string(i) + "/" +
-                      std::to_string(succeed_label) + ".qasm",
-                  std::ofstream::out);
-        fout << title;
-        fout << "qreg q[" << dag.qubit_num << "];" << std::endl;
-        fout << "creg c[" << dag.qubit_num << "];" << std::endl;
-        for (auto &g : dag.gate_info) {
-          fout << g.first << " ";
-          bool first = true;
-          for (auto &p : g.second) {
-            if (first)
-              first = false;
-            else
-              fout << ",";
-            ss.clear();
-            ss << p;
-            ss >> tmp_char >> qref;
-            if (tmp_char == 'Q')
-              fout << "q[" << qref << "]";
-            else
-              std::cout << "warning ! para type wrong!" << std::endl;
-          }
-          fout << ";" << std::endl;
-        }
-        fout.close();
+
+  DAG base(label_to_dag[front_label]);
+  base.extract_info();
+  for (auto &succeed_label :
+       inclusion_pattern_relationships_with_cost_limit[front_label]) {
+    DAG dag(label_to_dag[succeed_label]);
+    dag.extract_info();
+    std::fstream fout;
+    fout.open(file_name + "/" +
+                  std::to_string(depth + dag.gate_num - base.gate_num) + "/" +
+                  std::to_string(succeed_label) + ".qasm",
+              std::ofstream::out);
+    fout << title;
+    fout << "qreg q[" << dag.qubit_num << "];" << std::endl;
+    fout << "creg c[" << dag.qubit_num << "];" << std::endl;
+    for (auto &g : dag.gate_info) {
+      fout << g.first << " ";
+      bool first = true;
+      for (auto &p : g.second) {
+        if (first)
+          first = false;
+        else
+          fout << ",";
+        ss.clear();
+        ss << p;
+        ss >> tmp_char >> qref;
+        if (tmp_char == 'Q')
+          fout << "q[" << qref << "]";
+        else
+          std::cout << "warning ! para type wrong!" << std::endl;
       }
+      fout << ";" << std::endl;
     }
+    fout.close();
+    generate_testfile(file_name, succeed_label,
+                      depth + dag.gate_num - base.gate_num);
   }
+}
+
+void DataExtracter::generate_testfiles_of_inclusion_patterns(
+    std::string file_name) {
+  for (auto &i : inclusion_pattern_relationships_with_cost_limit) {
+    std::cout << i.first << ",";
+    generate_testfile(file_name, i.first, 0);
+  }
+  std::cout << std::endl;
 }
 
 int main() {
@@ -867,12 +876,13 @@ int main() {
   dataExtracter.generate_inclusion_relationships_between_patterns(
       relationship_loc + data_file_name +
       "/pattern_relationships_with_cost_limit.json");
+  dataExtracter.generate_testfiles_of_inclusion_patterns(
+      relationship_loc + data_file_name + "/testfiles");
   dataExtracter.print_front_label_for_inclusion_patterns(
       relationship_loc + data_file_name + "/front_label.json", 3);
   dataExtracter.print_general_front_label(relationship_loc + data_file_name +
                                           "/general_front_labels.json");
-  dataExtracter.generate_testfiles_of_inclusion_patterns(
-      relationship_loc + data_file_name + "/testfiles");
-  dataExtracter.print_relationships_between_patterns(relationship_loc + data_file_name +
-      "/pattern_relationships_with_cost_limit_old.json");
+  // dataExtracter.print_relationships_between_patterns(relationship_loc +
+  // data_file_name +
+  //     "/pattern_relationships_with_cost_limit_old.json");
 }
