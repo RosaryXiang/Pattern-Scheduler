@@ -118,6 +118,12 @@ bool DataExtracter::load_dag_to_label(std::string file_name) {
     ss.clear();
     ss << line;
     ss >> label;
+    if(label == 0){
+      dag_to_label[""] = 0;
+      label_to_dag[0] = "";
+      fout << label << " " << "" << std::endl;
+      continue;
+    }
     dag.clear();
     while (ss >> str) {
       dag += str;
@@ -855,27 +861,38 @@ int main() {
                                      "schd/quartz-master/data/" +
                                      data_file_name +
                                      "/representative_set.json");
+  std::cout << "load success!" << std::endl;
   dataExtracter.load_relationships(
       "/home/jun/桌面/lab/patt schd/quartz-master/data/" + data_file_name +
       "/succeed_info_map.json");
+  std::cout << "load success!" << std::endl;
   // dataExtracter.generate_reverse_rela();
-  // dataExtracter.print_dag_to_hash("dag_to_hash.json");
+  dataExtracter.print_dag_to_hash("dag_to_hash.json");
+  std::cout << "load success!" << std::endl;
+  // dataExtracter.print_loaded_representatives("loaded_representitives.json");
   dataExtracter.load_dag_to_label(
       "/home/jun/桌面/lab/patt schd/quartz-master/data/" + data_file_name +
       "/label_to_dag.json");
+  std::cout << "load success!" << std::endl;
   dataExtracter.load_eccs("/home/jun/桌面/lab/patt "
                           "schd/quartz-master/data/" +
                               data_file_name + "/complete_ECC_set.json",
                           "loaded_eccs.json");
+  std::cout << "load success!" << std::endl;
   dataExtracter.generate_patterns();
+  std::cout << "generate pattern success!" << std::endl;
   dataExtracter.classify_patterns_by_gate_num();
   // dataExtracter.print_QCIR_patterns("quartz_pattern.json");
   dataExtracter.print_QCIR_patterns_with_cost_limit(
       relationship_loc + data_file_name + "/patterns_with_cost_limit.json");
+  std::cout << "print pattern success!" << std::endl;
+
   dataExtracter.generate_relationships_between_patterns();
+  std::cout << "generate relationship success!" << std::endl;
   dataExtracter.generate_inclusion_relationships_between_patterns(
       relationship_loc + data_file_name +
       "/pattern_relationships_with_cost_limit.json");
+  std::cout << "generate inclusion relationship success!" << std::endl;
   dataExtracter.generate_testfiles_of_inclusion_patterns(
       relationship_loc + data_file_name + "/testfiles");
   dataExtracter.print_front_label_for_inclusion_patterns(

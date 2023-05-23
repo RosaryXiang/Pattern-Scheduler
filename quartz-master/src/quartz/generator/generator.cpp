@@ -34,6 +34,8 @@ void Generator::generate(
              std::chrono::steady_clock::now()) *record_verification_time) {
 // if invoke_python_verifier == true, we have input equiv_set
 // else, we don't maintain equiv_set
+  dataset->dag_to_label[""] = 0;
+  dataset->label_to_dag[0]="";
   auto empty_dag =
       std::make_unique<CircuitSeq>(num_qubits, num_input_parameters);
   // Generate all possible parameter gates at the beginning.
@@ -63,8 +65,12 @@ void Generator::generate(
                 << " gates." << std::endl;
     }
     if (!invoke_python_verifier) {
+      // std::cout << "enter if" << std::endl;
       assert(dataset);
       dags_to_search.clear();
+      // for(auto &i : dags.back()){
+      //   std::cout << i->compact_string() << std::endl;
+      // }
       bfs(dags, max_num_param_gates, *dataset, &dags_to_search,
           invoke_python_verifier, nullptr, unique_parameters);
       dags.push_back(dags_to_search);
@@ -377,6 +383,8 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
   // std::ofstream foutc;
   // foutc.open("check.txt");
   // int wrong_cnt = 0;
+  // std::fstream flog;
+  // flog.open("log.txt", std::ofstream::app);
   static int label = 0;
   auto try_to_add_to_result = [&](CircuitSeq *new_dag, CircuitSeq *old_dag) {
     // A new CircuitSeq with |current_max_num_gates| + 1 gates.
@@ -388,6 +396,8 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
         auto new_new_dag_ptr = new_new_dag.get();
         dataset.dag_to_label[new_new_dag->compact_string()] = label;
         dataset.label_to_dag[label] = new_new_dag->compact_string();
+        // flog << dataset.dag_to_label[old_dag->compact_string()] << "<-----" << label << std::endl;
+        // flog << old_dag->compact_string() << " <-----" << dataset.label_to_dag[label] << std::endl;
         dataset
             .succeed_info_map[dataset.dag_to_label[old_dag->compact_string()]]
             .insert(label);
@@ -411,6 +421,8 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
           context, std::make_unique<CircuitSeq>(*new_dag));
       dataset.dag_to_label[new_dag->compact_string()] = label;
       dataset.label_to_dag[label] = new_dag->compact_string();
+      // flog << dataset.dag_to_label[old_dag->compact_string()] << "<-----" << label << std::endl;
+      // flog << old_dag->compact_string() << " <-----" << dataset.label_to_dag[label] << std::endl;
       dataset.succeed_info_map[dataset.dag_to_label[old_dag->compact_string()]]
           .insert(label);
       label++;
@@ -550,6 +562,7 @@ void Generator::bfs(const std::vector<std::vector<CircuitSeq *>> &dags,
     }
   }
   // std::cout << "wrong_cnt = " << wrong_cnt << std::endl;
+  // flog.close();
 }
 
 void Generator::dfs_parameter_gates(
